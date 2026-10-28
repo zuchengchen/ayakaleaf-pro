@@ -14,10 +14,12 @@ export default function HistoryList({
   projectId,
   currentChatId,
   onOpen,
+  onDeleted,
 }: {
   projectId: string
   currentChatId: string
   onOpen: (chatId: string) => void
+  onDeleted?: (chatId: string) => void
 }) {
   const [chats, setChats] = useState<ChatListItem[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -33,6 +35,7 @@ export default function HistoryList({
 
   const remove = async (chatId: string) => {
     setChats(current => current?.filter(chat => chat.id !== chatId) ?? null)
+    onDeleted?.(chatId)
     try {
       await deleteChat(projectId, chatId)
     } catch (error) {

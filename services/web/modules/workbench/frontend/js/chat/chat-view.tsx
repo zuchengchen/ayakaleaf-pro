@@ -82,17 +82,35 @@ function useFollowBottom(trigger: unknown) {
   return { box, onScroll }
 }
 
+/** LOCAL: the start of the first thing the user wrote, for the chat's tab. */
+function titleOf(messages: UIMessage[]) {
+  for (const message of messages) {
+    if (message.role !== 'user') continue
+    for (const part of message.parts) {
+      if (part.type !== 'text') continue
+      const text = part.text.split(CONTEXT_OPEN)[0].replace(/\s+/g, ' ').trim()
+      if (text) return text
+    }
+  }
+  return ''
+}
+
 export default function ChatView({
   chatId,
   view,
   initialMessages,
   initialSummary = null,
+  active = true,
+  onStatus,
 }: {
   chatId: string
   view: EditorView
   // LOCAL: a chat reopened from the history
   initialMessages?: UIMessage[]
   initialSummary?: Summary | null
+  // LOCAL: whether this chat's tab is shown, and what its tab shows
+  active?: boolean
+  onStatus?: (status: { title: string; busy: boolean }) => void
 }) {
   const {
     hasSuggestionsLeft,
@@ -363,7 +381,16 @@ export default function ChatView({
   // LOCAL: questions from the editor's selection menu
   const sendRef = useRef(send)
   sendRef.current = send
-  useEffect(() => onAskAssistant(text => sendRef.current({ text, files: [] })), [])
+  useEffect(
+    () => (active ? onAskAssistant(text => sendRef.current({ text, files: [] })) : undefined),
+    [active]
+  )
+
+  const busy = status === 'submitted' || status === 'streaming' || toolsRunning > 0
+  const title = useMemo(() => titleOf(messages), [messages])
+  const onStatusRef = useRef(onStatus)
+  onStatusRef.current = onStatus
+  useEffect(() => onStatusRef.current?.({ title, busy }), [title, busy])
 
   const { box, onScroll } = useFollowBottom(messages)
   const selectionNote = selection.length
@@ -424,7 +451,7 @@ export default function ChatView({
           typeof problem === 'string' ? <ChatNotice type="error" text={problem} /> : <ChatFailedNotice />
         )}
         <Composer
-          working={status === 'submitted' || status === 'streaming' || toolsRunning > 0}
+          working={busy}
           selectionNote={selectionNote}
           onSend={send}
           onStop={stopReply}
