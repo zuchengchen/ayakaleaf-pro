@@ -1,80 +1,108 @@
 /**
- * LOCAL: marks the lines a pending propose_edit would change in the open
- * document, until the user applies or rejects it
+ * LOCAL: shows a pending propose_edit in the open document as the chat shows
+ * it, a word diff with removed words struck out and added words inserted,
+ * until the user applies or rejects it
  * (overleafModuleImports.sourceEditorExtensions).
  */
-import { StateEffect, StateField, type Extension } from '@codemirror/state'
-import { Decoration, EditorView, type DecorationSet } from '@codemirror/view'
-import { findEdit, type ProposedEdit } from './apply-edit'
+import { RangeSet, StateEffect, StateField, type Extension } from '@codemirror/state'
+import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
+import { findEdit, wordDiff, type ProposedEdit } from './apply-edit'
 
-type Highlight = { id: string; from: number; to: number }
+/** Text the edit would add, drawn where it would go. */
+class AddedText extends WidgetType {
+  constructor(readonly text: string) {
+    super()
+  }
 
-const addHighlight = StateEffect.define<Highlight>()
-const removeHighlight = StateEffect.define<string>()
+  eq(other: AddedText) {
+    return other.text === this.text
+  }
 
+  toDOM() {
+    const ins = document.createElement('ins')
+    ins.className = 'ol-ai-proposal-added'
+    ins.textContent = this.text
+    return ins
+  }
+
+  ignoreEvent() {
+    return false
+  }
+}
+
+const removedMark = Decoration.mark({ class: 'ol-ai-proposal-removed', tagName: 'del' })
 const lineMark = Decoration.line({ class: 'ol-ai-proposal-line' })
 
-const highlightField = StateField.define<Highlight[]>({
-  create: () => [],
-  update(highlights, transaction) {
-    let next = transaction.docChanged
-      ? highlights.map(highlight => ({
-          ...highlight,
-          from: transaction.changes.mapPos(highlight.from, -1),
-          to: transaction.changes.mapPos(highlight.to, 1),
-        }))
-      : highlights
+const addProposal = StateEffect.define<{ id: string; decorations: DecorationSet }>()
+const removeProposal = StateEffect.define<string>()
+
+const proposalField = StateField.define<Map<string, DecorationSet>>({
+  create: () => new Map(),
+  update(proposals, transaction) {
+    let next = proposals
+    if (transaction.docChanged) {
+      next = new Map([...next].map(([id, set]) => [id, set.map(transaction.changes)]))
+    }
     for (const effect of transaction.effects) {
-      if (effect.is(addHighlight)) {
-        next = [...next.filter(highlight => highlight.id !== effect.value.id), effect.value]
-      } else if (effect.is(removeHighlight)) {
-        next = next.filter(highlight => highlight.id !== effect.value)
+      if (effect.is(addProposal)) {
+        next = new Map(next).set(effect.value.id, effect.value.decorations)
+      } else if (effect.is(removeProposal) && next.has(effect.value)) {
+        next = new Map(next)
+        next.delete(effect.value)
       }
     }
     return next
   },
   provide: field =>
-    EditorView.decorations.compute([field], (state): DecorationSet => {
-      const starts = new Set<number>()
-      for (const { from, to } of state.field(field)) {
-        const last = state.doc.lineAt(Math.min(to, state.doc.length)).number
-        for (let number = state.doc.lineAt(Math.min(from, state.doc.length)).number; number <= last; number++) {
-          starts.add(state.doc.line(number).from)
-        }
-      }
-      return Decoration.set(
-        [...starts].sort((a, b) => a - b).map(start => lineMark.range(start))
-      )
-    }),
+    EditorView.decorations.from(field, proposals => RangeSet.join([...proposals.values()])),
 })
 
+// The chat's colors for the diff (themed.ts useChangeColors)
 const theme = EditorView.baseTheme({
-  '&light .ol-ai-proposal-line': {
-    backgroundColor: 'rgba(255, 193, 7, 0.18)',
-    boxShadow: 'inset 3px 0 0 #e0a100',
+  '.ol-ai-proposal-line': {
+    boxShadow: 'inset 3px 0 0 var(--green-50)',
   },
-  '&dark .ol-ai-proposal-line': {
-    backgroundColor: 'rgba(255, 193, 7, 0.14)',
-    boxShadow: 'inset 3px 0 0 #c99300',
-  },
+  '&light .ol-ai-proposal-removed': { color: 'var(--red-50)', textDecoration: 'line-through' },
+  '&dark .ol-ai-proposal-removed': { color: 'var(--red-30)', textDecoration: 'line-through' },
+  '.ol-ai-proposal-added': { textDecoration: 'none', whiteSpace: 'pre-wrap' },
+  '&light .ol-ai-proposal-added': { backgroundColor: 'var(--green-10)', color: 'var(--green-70)' },
+  '&dark .ol-ai-proposal-added': { backgroundColor: 'var(--green-70)', color: 'var(--white)' },
 })
 
-/** Marks where edit would apply; false when the document no longer has it. */
+/** Draws edit as a word diff where it would apply; false when the document no longer has it. */
 export function showProposal(view: EditorView, id: string, edit: ProposedEdit) {
-  if (!view.state.field(highlightField, false)) return false
-  const from = findEdit(view, edit)
-  if (from === null) return false
-  const to = from + edit.oldText.length
-  view.dispatch({ effects: addHighlight.of({ id, from, to }) })
+  if (!view.state.field(proposalField, false)) return false
+  const start = findEdit(view, edit)
+  if (start === null) return false
+  const { doc } = view.state
+
+  // The same diff the chat shows, placed the way applyEdit places it
+  const ranges = []
+  let position = start
+  for (const part of wordDiff(edit.oldText, edit.newText)) {
+    if (part.added) {
+      ranges.push(Decoration.widget({ widget: new AddedText(part.value), side: 1 }).range(position))
+    } else {
+      if (part.removed && part.value.length) {
+        ranges.push(removedMark.range(position, position + part.value.length))
+      }
+      position += part.value.length
+    }
+  }
+  const last = doc.lineAt(Math.max(start, start + edit.oldText.length - (edit.oldText ? 1 : 0))).number
+  for (let number = doc.lineAt(start).number; number <= last; number++) {
+    ranges.push(lineMark.range(doc.line(number).from))
+  }
+
+  view.dispatch({ effects: addProposal.of({ id, decorations: Decoration.set(ranges, true) }) })
   return true
 }
 
 export function hideProposal(view: EditorView, id: string) {
-  const highlights = view.state.field(highlightField, false)
-  if (highlights?.some(highlight => highlight.id === id)) {
-    view.dispatch({ effects: removeHighlight.of(id) })
+  if (view.state.field(proposalField, false)?.has(id)) {
+    view.dispatch({ effects: removeProposal.of(id) })
   }
 }
 
 // sourceEditorExtensions modules export `extension`, a factory
-export const extension = (): Extension => [highlightField, theme]
+export const extension = (): Extension => [proposalField, theme]
