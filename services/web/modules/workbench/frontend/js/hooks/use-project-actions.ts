@@ -10,7 +10,7 @@ import { useEditorManagerContext } from '@/features/ide-react/context/editor-man
 import { useDetachCompileContext } from '@/shared/context/detach-compile-context'
 import { useProjectSettingsContext } from '@/features/ide-settings/context/project-settings-context'
 import { syncCreateEntity } from '@/features/file-tree/util/sync-mutation'
-import { getJSON } from '@/infrastructure/fetch-json'
+import { FetchError, getJSON } from '@/infrastructure/fetch-json'
 import { signalWithTimeout } from '@/utils/abort-signal'
 import { ToolRefusal } from '../errors'
 
@@ -19,7 +19,25 @@ const PAGE_PIXEL_BUDGET = 1024 * 1024
 const COMPILE_LOG_WAIT_MS = 15_000
 // The outline stops at the page that takes it past this length
 const OUTLINE_CHARS = 40_000
-const READ_TIMEOUT_MS = 5000
+// LOCAL: each read may take this long, and one that times out or loses the
+// connection is tried again after these waits
+const READ_TIMEOUT_MS = 15_000
+const READ_RETRY_DELAYS_MS = [500, 1000, 2000]
+
+/** Resolves after ms, or rejects as soon as signal aborts. */
+function wait(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(resolve, ms)
+    signal.addEventListener(
+      'abort',
+      () => {
+        window.clearTimeout(timer)
+        reject(signal.reason)
+      },
+      { once: true }
+    )
+  })
+}
 
 type CompileContext = ReturnType<typeof useDetachCompileContext>
 
@@ -103,14 +121,29 @@ export function useProjectActions(): ProjectActions {
   const readFile = useCallback(
     async (path: string, signal: AbortSignal) => {
       const doc = findDoc(path)
-      const timed = signalWithTimeout(signal, READ_TIMEOUT_MS)
-      // Unsent edits of open documents go out first, so the read is current
-      await openDocs.awaitBufferedOps(timed)
-      const { message } = await getJSON<{ message: string }>(
-        `/project/${projectId}/doc/${doc._id}/download`,
-        { signal: timed, cache: 'no-store', swallowAbortError: false }
+      let timedOut = false
+      for (let attempt = 0; attempt <= READ_RETRY_DELAYS_MS.length; attempt++) {
+        if (attempt > 0) await wait(READ_RETRY_DELAYS_MS[attempt - 1], signal)
+        const timed = signalWithTimeout(signal, READ_TIMEOUT_MS)
+        try {
+          // Unsent edits of open documents go out first, so the read is current
+          await openDocs.awaitBufferedOps(timed)
+          const { message } = await getJSON<{ message: string }>(
+            `/project/${projectId}/doc/${doc._id}/download`,
+            { signal: timed, cache: 'no-store', swallowAbortError: false }
+          )
+          return message
+        } catch (error) {
+          // Stopped by the user, or answered by the server: no point trying again
+          if (signal.aborted || (error instanceof FetchError && error.response)) throw error
+          timedOut = timed.aborted
+        }
+      }
+      throw new Error(
+        `Could not read ${path}: ${
+          timedOut ? `it took longer than ${READ_TIMEOUT_MS / 1000} seconds` : 'the connection failed'
+        } ${READ_RETRY_DELAYS_MS.length + 1} times. Try again later.`
       )
-      return message
     },
     [findDoc, openDocs, projectId]
   )

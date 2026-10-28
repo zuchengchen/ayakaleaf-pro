@@ -221,6 +221,12 @@ export default function ChatView({
         setQuotaHit(true)
       } else if (error instanceof ToolBudgetError) {
         setProblem(error.message)
+      } else if (error.message === 'ai_service_error') {
+        // LOCAL: set by the server when the gateway failed mid-reply; the chat
+        // itself is fine
+        setProblem(
+          'The AI service had a temporary problem and stopped. Send “continue” to carry on.'
+        )
       } else if (error.message === 'ai_pdf_not_supported') {
         // Set by the server when the model refused a chat with a PDF file
         setProblem(
@@ -267,7 +273,9 @@ export default function ChatView({
               ? error.message
               : String(error),
         } as any)
-        if (!aborted && !(error instanceof ToolRefusal)) setProblem(true)
+        // LOCAL: the tool's card shows the error and the model gets it to work
+        // around, so the chat is not marked as failed
+        if (!aborted && !(error instanceof ToolRefusal)) debugConsole.error(error)
       } finally {
         signal.removeEventListener('abort', abort)
         running.current.delete(controller)

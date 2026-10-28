@@ -33,7 +33,8 @@ export function ChatFailedNotice() {
     <ChatNotice
       type="error"
       title={t('somethings_gone_wrong')}
-      text={t('weve_hit_a_problem_try_starting_a_new_chat')}
+      // LOCAL: most failures pass; starting over loses the chat
+      text="The request did not go through. Send your message again, or start a new chat if it keeps failing."
     />
   )
 }

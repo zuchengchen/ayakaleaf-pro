@@ -209,7 +209,8 @@ async function chat(req, res) {
       ) {
         return 'ai_pdf_not_supported'
       }
-      return 'The AI service returned an error. Please try again.'
+      // LOCAL: the browser tells the user to send "continue"
+      return 'ai_service_error'
     }
     const stream = createUIMessageStream({
       // Continues the last assistant message after browser tool calls;
