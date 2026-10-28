@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Sync the fork with ayaka-notes/ayakaleaf-pro.
+#
+#   1. fast-forward the mirror branch `server-pro` to upstream/server-pro
+#   2. push the mirror to origin
+#   3. merge `server-pro` into the working branch (default: main)
+#
+# Usage: bin/sync-upstream [working-branch]
+set -euo pipefail
+
+MIRROR=server-pro
+WORK=${1:-main}
+
+if [[ -n $(git status --porcelain --untracked-files=no) ]]; then
+  echo "error: working tree has uncommitted changes, commit or stash them first" >&2
+  exit 1
+fi
+
+git fetch upstream --tags
+git fetch origin
+
+# Update the mirror without checking it out; refuses anything but a fast-forward.
+if [[ $(git rev-parse --abbrev-ref HEAD) == "$MIRROR" ]]; then
+  git merge --ff-only "upstream/$MIRROR"
+else
+  git fetch . "upstream/$MIRROR:$MIRROR"
+fi
+git push origin "$MIRROR"
+
+git switch "$WORK"
+behind=$(git rev-list --count "$WORK..$MIRROR")
+if [[ $behind -eq 0 ]]; then
+  echo "$WORK is already up to date with $MIRROR"
+  exit 0
+fi
+echo "merging $behind new upstream commit(s) into $WORK"
+if ! git merge --no-edit "$MIRROR"; then
+  echo
+  echo "Merge stopped on conflicts. Resolve them, then: git add <files> && git merge --continue"
+  echo "For yarn.lock: git checkout --theirs yarn.lock && yarn install && git add yarn.lock"
+  exit 1
+fi
+echo "done. Run the tests, then: git push origin $WORK"
