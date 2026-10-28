@@ -1,13 +1,20 @@
 /**
- * LOCAL: the row above the composer's buttons: the model, its reasoning
- * effort, and whether proposed edits are applied without asking.
+ * LOCAL: the menus beside the composer's attach button: the model, its
+ * reasoning effort, and whether proposed edits are applied without asking.
  */
 import MaterialIcon from '@/shared/components/material-icon'
 import OLTooltip from '@/shared/components/ol/ol-tooltip'
 import type { AiModel } from '../hooks/use-ai-access'
 import { muted, plain } from './themed'
 
-const menu = { ...plain, backgroundColor: 'transparent', minWidth: 0 }
+// Bootstrap leaves room for a wide arrow; the composer row is narrow
+const menu = {
+  ...plain,
+  backgroundColor: 'transparent',
+  minWidth: 0,
+  paddingRight: '1.25rem',
+  backgroundPosition: 'right 0.2rem center',
+}
 
 /** Models by provider; one provider needs no groups. */
 function modelGroups(models: AiModel[]): [string, AiModel[]][] {
@@ -65,12 +72,14 @@ export default function ComposerMenus({
   // The default model is listed once, under its own name
   const others = models.filter(option => option.id !== defaultModel?.id)
   return (
-    <div className="d-flex align-items-center gap-1" style={{ minWidth: 0 }}>
+    // Between the attach and send buttons, taking the room they leave
+    <div className="d-flex align-items-center gap-1 flex-grow-1" style={{ minWidth: 0 }}>
       {others.length > 0 ? (
         <select
           className="form-select form-select-sm w-auto border-0 shadow-none text-truncate ps-1"
-          style={{ ...menu, minWidth: '5rem' }}
+          style={{ ...menu, minWidth: '3.5rem' }}
           aria-label="Model"
+          title={others.find(option => option.id === model)?.label ?? defaultModel?.label}
           value={model}
           onChange={event => onModelChange(event.target.value)}
         >
@@ -85,23 +94,23 @@ export default function ComposerMenus({
         )
       )}
       {efforts.length > 0 && (
-        <span className="d-inline-flex align-items-center flex-shrink-0" title="Reasoning effort">
-          <MaterialIcon type="psychology" style={muted} />
-          <select
-            className="form-select form-select-sm w-auto border-0 shadow-none ps-1"
-            style={menu}
-            aria-label="Reasoning effort"
-            value={effort}
-            onChange={event => onEffortChange(event.target.value)}
-          >
-            <option value="">Auto</option>
-            {efforts.map(level => (
-              <option key={level} value={level}>
-                {level}
-              </option>
-            ))}
-          </select>
-        </span>
+        <select
+          className="form-select form-select-sm w-auto border-0 shadow-none ps-1"
+          // A native menu is as wide as its longest level; it gives up that
+          // room before the model's name does
+          style={{ ...menu, minWidth: '3.75rem', flexShrink: 4 }}
+          aria-label="Reasoning effort"
+          title="Reasoning effort"
+          value={effort}
+          onChange={event => onEffortChange(event.target.value)}
+        >
+          <option value="">Auto</option>
+          {efforts.map(level => (
+            <option key={level} value={level}>
+              {level}
+            </option>
+          ))}
+        </select>
       )}
       <span className="flex-grow-1" />
       <OLTooltip
@@ -110,7 +119,7 @@ export default function ComposerMenus({
       >
         <button
           type="button"
-          className="btn btn-sm d-inline-flex align-items-center flex-shrink-0 rounded-circle p-1"
+          className="btn btn-sm d-inline-flex align-items-center flex-shrink-0 rounded-circle p-0"
           style={
             autoApply
               ? { color: 'var(--white)', backgroundColor: 'var(--green-50)' }

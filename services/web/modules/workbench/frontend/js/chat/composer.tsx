@@ -199,7 +199,6 @@ const Composer = forwardRef<
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
-      {menus}
       <div className="d-flex align-items-center">
         <input
           ref={picker}
@@ -222,7 +221,7 @@ const Composer = forwardRef<
             onClick={() => picker.current?.click()}
           />
         </OLTooltip>
-        <span className="flex-grow-1" />
+        {menus ?? <span className="flex-grow-1" />}
         {working ? (
           <OLIconButton icon="stop_circle" variant="ghost" style={{ ...flatGhost, ...plain }} accessibilityLabel={t('stop')} onClick={onStop} />
         ) : (
