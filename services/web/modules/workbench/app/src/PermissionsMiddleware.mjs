@@ -1,11 +1,11 @@
-import Settings from '@overleaf/settings'
+import { isEnabled } from './WorkbenchAiClient.mjs'
 import { expressify } from '@overleaf/promise-utils'
 import SessionManager from '../../../../app/src/Features/Authentication/SessionManager.mjs'
 import UserGetter from '../../../../app/src/Features/User/UserGetter.mjs'
 
 export async function getAiAccess(userId) {
   const denied = { chat: false, errorAssistant: false }
-  if (!userId || !Settings.workbenchAi?.enabled) return denied
+  if (!userId || !isEnabled()) return denied
 
   // Read current permissions so an admin can revoke access to an open session.
   const user = await UserGetter.promises.getUser(userId, { aiFeatures: 1 })

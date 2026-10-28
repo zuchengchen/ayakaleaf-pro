@@ -11,8 +11,9 @@ import {
 } from 'ai'
 import SessionManager from '../../../../app/src/Features/Authentication/SessionManager.mjs'
 import {
+  loadAiConfig,
   isConfigured,
-  getProvider,
+  getSelectableModels,
   resolveModel,
   hasPdf,
   getMaxSteps,
@@ -66,6 +67,7 @@ function hasValidAttachments(messages) {
 async function chat(req, res) {
   const userId = SessionManager.getLoggedInUserId(req.session)
 
+  await loadAiConfig()
   if (!isConfigured()) {
     logger.warn(
       { userId },
@@ -76,10 +78,12 @@ async function chat(req, res) {
   }
 
   // summary: the earlier turns, summarized by a previous request
-  const { messages, summary } = req.body || {}
+  // model: the id of a model the user picked, if any
+  const { messages, summary, model } = req.body || {}
   if (
     !Array.isArray(messages) ||
-    (summary !== undefined && typeof summary !== 'string')
+    (summary !== undefined && typeof summary !== 'string') ||
+    (model != null && typeof model !== 'string')
   ) {
     return res.status(400).json({ error: 'invalid_request' })
   }
@@ -168,12 +172,12 @@ async function chat(req, res) {
     system += `\n\nThe earlier part of this conversation was summarized:\n\n${historySummary}`
   }
 
-  const resolvedModel = resolveModel(history)
+  const resolvedModel = resolveModel(history, model)
 
   try {
     const result = streamText({
       model: wrapLanguageModel({
-        model: getProvider()(resolvedModel),
+        model: resolvedModel,
         middleware: toolCallLimit.middleware,
       }),
       system,
@@ -254,8 +258,14 @@ async function chat(req, res) {
 export default {
   getAccess: expressify(async (req, res) => {
     res.set('Cache-Control', 'no-store')
+    await loadAiConfig()
     const access = await getAiAccess(SessionManager.getLoggedInUserId(req.session))
-    res.json({ allowed: access.chat, errorAssistant: access.errorAssistant })
+    res.json({
+      allowed: access.chat,
+      errorAssistant: access.errorAssistant,
+      // LOCAL: the models users may pick in the chat
+      models: access.chat ? getSelectableModels() : [],
+    })
   }),
   chat,
 }

@@ -21,7 +21,8 @@ import { useFileTreePathContext } from '@/features/file-tree/contexts/file-tree-
 import useAiConsent from '@/shared/hooks/use-ai-consent'
 import useAbortController from '@/shared/hooks/use-abort-controller'
 import AiPaywallNotification from '@/shared/components/ai-paywall-notification'
-import useAiAccess from '../hooks/use-ai-access'
+import useAiAccess, { useAiModels } from '../hooks/use-ai-access'
+import usePersistedState from '@/shared/hooks/use-persisted-state'
 import { useProjectActions } from '../hooks/use-project-actions'
 import { TOOLS, type Respond } from '../agent/tools'
 import { AiUnavailableError, QuotaExceededError, ToolBudgetError, ToolRefusal } from '../errors'
@@ -89,6 +90,12 @@ export default function ChatView({ chatId, view }: { chatId: string; view: Edito
   } = useEditorContext()
   const { hasGivenAiConsent } = useAiConsent()
   const hasAccess = useAiAccess()
+  // LOCAL: the model the user picked, if the admin offers a choice
+  const models = useAiModels()
+  const [pickedModel, setPickedModel] = usePersistedState<string>('workbench.model', '')
+  const model = models.some(option => option.id === pickedModel) ? pickedModel : ''
+  const modelRef = useRef(model)
+  modelRef.current = model
   const aiOffHere = getMeta('ol-showAiFeaturesDisabled')
   const { signal } = useAbortController()
   const actions = useProjectActions()
@@ -154,6 +161,7 @@ export default function ChatView({ chatId, view }: { chatId: string; view: Edito
               messages: messages.slice(from),
               summary: kept?.summary,
               enabledTools: SERVER_TOOLS,
+              model: modelRef.current || undefined,
             },
           }
         },
@@ -189,7 +197,7 @@ export default function ChatView({ chatId, view }: { chatId: string; view: Edito
       } else if (error.message === 'ai_pdf_not_supported') {
         // Set by the server when the model refused a chat with a PDF file
         setProblem(
-          'The AI model cannot read PDF files. Ask your administrator to set AI_PDF_MODEL to a model that can.'
+          'The AI model cannot read PDF files. Pick another model, or ask your administrator to set a model for chats with PDF files.'
         )
       } else {
         debugConsole.error(error)
@@ -366,6 +374,9 @@ export default function ChatView({ chatId, view }: { chatId: string; view: Edito
           onSend={send}
           onStop={stopReply}
           onProblem={message => setProblem(message)}
+          models={models}
+          model={model}
+          onModelChange={setPickedModel}
         />
         {/* One line, or a break after the first sentence */}
         <p

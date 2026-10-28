@@ -1331,6 +1331,8 @@ module.exports = {
     'tpr-webmodule',
     'workbench',
     'error-assistant',
+    // LOCAL: admin page for AI gateways and models
+    'ai-providers',
     'instance-features',
     'open-in-overleaf'
   ],

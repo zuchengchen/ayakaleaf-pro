@@ -3,25 +3,35 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import nodeFetch from 'node-fetch'
 import { Readable } from 'node:stream'
+import AiProviderStore from '../../../ai-providers/app/src/AiProviderStore.mjs'
 
 /**
- * Configures the AI SDK provider, optional HTTP proxy, and model selection
+ * Configures the AI SDK providers, optional HTTP proxy, and model selection
  * for the workbench gateway.
  */
 
-let _provider = null
+// LOCAL: gateways and models come from the admin's AI providers page, or
+// from the AI_* environment variables until an admin saves one
+let _providers = new Map()
 let _proxyFetch = null
 
+/** Waits for a recent AI providers configuration. */
+export async function loadAiConfig() {
+  await AiProviderStore.ensureFresh()
+}
+
+/** Whether an admin, or AI_ENABLED, turned AI on. */
+export function isEnabled() {
+  return AiProviderStore.current().enabled
+}
+
 /**
- * Whether AI is enabled and its gateway, API key, and text model are configured.
+ * Whether AI is enabled and its default chat model has a gateway and API key.
  */
 export function isConfigured() {
-  return Boolean(
-    Settings.workbenchAi?.enabled &&
-      Settings.workbenchAi?.baseURL &&
-      Settings.workbenchAi?.apiKey &&
-      Settings.workbenchAi?.model
-  )
+  const config = AiProviderStore.current()
+  const chat = AiProviderStore.findModel(config, config.roles.chat)
+  return Boolean(config.enabled && chat?.provider.baseURL && chat.provider.apiKey)
 }
 
 /**
@@ -51,22 +61,52 @@ function _getProxyFetch() {
   return _proxyFetch
 }
 
-/** Lazily build (and cache) the OpenAI-compatible provider. */
-export function getProvider() {
-  if (!_provider) {
-    const config = {
-      name: 'workbench',
-      baseURL: Settings.workbenchAi.baseURL,
-      apiKey: Settings.workbenchAi.apiKey,
-      includeUsage: true,
-    }
-    const proxyFetch = _getProxyFetch()
-    if (proxyFetch) {
-      config.fetch = proxyFetch
-    }
-    _provider = createOpenAICompatible(config)
+/** Builds an OpenAI-compatible provider for a gateway. */
+export function createProvider({ baseURL, apiKey }) {
+  const config = {
+    name: 'workbench',
+    baseURL,
+    apiKey,
+    includeUsage: true,
   }
-  return _provider
+  const proxyFetch = _getProxyFetch()
+  if (proxyFetch) {
+    config.fetch = proxyFetch
+  }
+  return createOpenAICompatible(config)
+}
+
+/** The language model for a model id, with its gateway's provider cached. */
+function languageModel(config, modelId) {
+  const found = AiProviderStore.findModel(config, modelId)
+  if (!found) return null
+  const { provider, model } = found
+  const key = `${provider.baseURL}\n${provider.apiKey}`
+  if (!_providers.has(key)) {
+    // Providers of edited or removed gateways pile up; start over now and then
+    if (_providers.size > 50) _providers = new Map()
+    _providers.set(key, createProvider(provider))
+  }
+  return _providers.get(key)(model.model)
+}
+
+/** The models users can pick in the chat, as { id, label }. */
+export function getSelectableModels() {
+  const config = AiProviderStore.current()
+  return config.providers.flatMap(provider =>
+    provider.models
+      .filter(model => model.selectable)
+      .map(model => ({ id: model.id, label: model.label || model.model }))
+  )
+}
+
+/** The model for one use (see AiProviderStore.ROLES); unset uses the chat model. */
+export function getRoleModel(role) {
+  const config = AiProviderStore.current()
+  return (
+    languageModel(config, config.roles[role]) ||
+    languageModel(config, config.roles.chat)
+  )
 }
 
 /** Whether a user attached a PDF anywhere in the conversation. */
@@ -79,15 +119,20 @@ export function hasPdf(messages = []) {
 }
 
 /**
- * Selects the instance's configured text, image or PDF model for a request.
+ * Selects the language model for a chat request: the model the user picked
+ * if users may pick it, otherwise the configured PDF, image or chat model.
  */
-export function resolveModel(messages = []) {
+export function resolveModel(messages = [], choice = null) {
+  const config = AiProviderStore.current()
+  if (choice && AiProviderStore.findModel(config, choice)?.model.selectable) {
+    return languageModel(config, choice)
+  }
   // Follow-up requests retain earlier attachments, so route the entire conversation.
-  if (Settings.workbenchAi?.pdfModel && hasPdf(messages)) {
-    return Settings.workbenchAi.pdfModel
+  if (config.roles.pdf && hasPdf(messages)) {
+    return getRoleModel('pdf')
   }
   if (
-    Settings.workbenchAi?.imageModel &&
+    config.roles.image &&
     messages.some(message =>
       message.parts?.some(
         part =>
@@ -96,9 +141,9 @@ export function resolveModel(messages = []) {
       )
     )
   ) {
-    return Settings.workbenchAi.imageModel
+    return getRoleModel('image')
   }
-  return Settings.workbenchAi?.model
+  return getRoleModel('chat')
 }
 
 /** Maximum tool calls per user message, including automatic continuations. */
@@ -124,8 +169,12 @@ The user's message can end with an <editor-context> block naming the open file a
 Answer in the language of the user's latest message, whatever language the document is in. Keep answers short and practical, in Markdown: LaTeX source in fenced code blocks, inline math in $...$ and displayed math in $$...$$, and a dollar sign that is not math as \\$. When a request is unclear, ask one short question first.`
 
 export default {
+  loadAiConfig,
+  isEnabled,
   isConfigured,
-  getProvider,
+  createProvider,
+  getSelectableModels,
+  getRoleModel,
   resolveModel,
   getMaxSteps,
   SYSTEM_PROMPT,

@@ -5,9 +5,9 @@ import SessionManager from '../../../../app/src/Features/Authentication/SessionM
 import ProjectLocator from '../../../../app/src/Features/Project/ProjectLocator.mjs'
 import DocumentUpdaterHandler from '../../../../app/src/Features/DocumentUpdater/DocumentUpdaterHandler.mjs'
 import {
+  loadAiConfig,
   isConfigured,
-  getProvider,
-  resolveModel,
+  getRoleModel,
 } from '../../../workbench/app/src/WorkbenchAiClient.mjs'
 import {
   isQuotaEnabled,
@@ -97,6 +97,7 @@ async function fixError(req, res) {
   const projectId = req.params.Project_id
   const entry = req.body?.entry
 
+  await loadAiConfig()
   if (!isConfigured()) {
     return res.status(403).json({ error: 'ai_not_configured' })
   }
@@ -160,7 +161,7 @@ async function fixError(req, res) {
 
   try {
     const result = streamText({
-      model: getProvider()(resolveModel()),
+      model: getRoleModel('errorAssistant'),
       system: INSTRUCTIONS,
       prompt: describeEntry(entry, path, lines),
       tools: { propose_fix: proposeFix },

@@ -1,5 +1,5 @@
 import { streamText } from 'ai'
-import { getProvider, resolveModel } from './WorkbenchAiClient.mjs'
+import { getRoleModel } from './WorkbenchAiClient.mjs'
 import { recordTokenUsage } from './TokenQuota.mjs'
 
 /**
@@ -211,7 +211,7 @@ export async function compactHistory({ messages, summary, userId }) {
 
   const head = messages.slice(0, cut)
   const result = streamText({
-    model: getProvider()(resolveModel()),
+    model: getRoleModel('chat'),
     system: SUMMARY_PROMPT,
     prompt: transcript(head, summary),
     // Errors reject result.text, the caller decides what to do

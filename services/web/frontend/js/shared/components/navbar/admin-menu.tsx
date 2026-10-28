@@ -41,6 +41,10 @@ export default function AdminMenu({
           <NavDropdownLinkItem href="/admin/user">
             Manage Users
           </NavDropdownLinkItem>
+          {/* LOCAL: AI gateways and models, from the ai-providers module */}
+          <NavDropdownLinkItem href="/admin/ai-providers">
+            Manage AI Providers
+          </NavDropdownLinkItem>
         </>
       ) : null}
       {canDisplayProjectUrlLookup ? (

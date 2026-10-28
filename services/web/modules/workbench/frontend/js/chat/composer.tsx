@@ -11,6 +11,7 @@ import OLTooltip from '@/shared/components/ol/ol-tooltip'
 import MaterialIcon from '@/shared/components/material-icon'
 import { boxed, flatGhost, plain, surface } from './themed'
 import ImagePreview from './image-preview'
+import type { AiModel } from '../hooks/use-ai-access'
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 const MAX_ROWS = 8
@@ -36,8 +37,15 @@ const Composer = forwardRef<
     onSend: (draft: Draft) => void
     onStop: () => void
     onProblem: (message: string | false) => void
+    // LOCAL: models the user can pick; '' is the admin's default
+    models?: AiModel[]
+    model?: string
+    onModelChange?: (model: string) => void
   }
->(function Composer({ working, selectionNote, onSend, onStop, onProblem }, ref) {
+>(function Composer(
+  { working, selectionNote, onSend, onStop, onProblem, models = [], model = '', onModelChange },
+  ref
+) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [focused, setFocused] = useState(false)
@@ -181,6 +189,22 @@ const Composer = forwardRef<
           />
         </OLTooltip>
         <span className="flex-grow-1" />
+        {models.length > 0 && (
+          <select
+            className="form-select form-select-sm w-auto me-1 border-0 shadow-none"
+            style={{ ...plain, backgroundColor: 'transparent', maxWidth: '60%' }}
+            aria-label="Model"
+            value={model}
+            onChange={event => onModelChange?.(event.target.value)}
+          >
+            <option value="">Default</option>
+            {models.map(option => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
         {working ? (
           <OLIconButton icon="stop_circle" variant="ghost" style={{ ...flatGhost, ...plain }} accessibilityLabel={t('stop')} onClick={onStop} />
         ) : (

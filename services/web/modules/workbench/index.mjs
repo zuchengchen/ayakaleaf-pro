@@ -2,7 +2,9 @@ import Settings from '@overleaf/settings'
 import WorkbenchRouter from './app/src/WorkbenchRouter.mjs'
 
 // Configures the shared AI gateway, token quota, and search providers
-// from environment variables:
+// from environment variables. LOCAL: once an admin saves gateways and models
+// on Admin > Manage AI Providers (ai-providers module), those replace
+// AI_ENABLED, AI_BASE_URL, AI_API_KEY and the AI_*_MODEL variables.
 //   AI_ENABLED   — set to 'true' to enable chat and error suggestions;
 //                  disabled by default
 //   AI_BASE_URL  — e.g. https://api.openai.com/v1 or https://ai-api.example.com/api/v1
