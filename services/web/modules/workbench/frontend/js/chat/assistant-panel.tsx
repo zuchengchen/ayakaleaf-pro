@@ -11,6 +11,7 @@ import OLTooltip from '@/shared/components/ol/ol-tooltip'
 import { useEditorViewContext } from '@/features/ide-react/context/editor-view-context'
 import { useRailContext } from '@/features/ide-react/context/rail-context'
 import { useAssistantDock } from '../assistant-dock-context'
+import { onAskAssistant } from '../assistant-events'
 import ChatView from './chat-view'
 import { useProjectContext } from '@/shared/context/project-context'
 import OLSpinner from '@/shared/components/ol/ol-spinner'
@@ -47,7 +48,7 @@ function HeaderButton({
 export default function AssistantPanel() {
   const { t } = useTranslation()
   const { view } = useEditorViewContext()
-  const { side, moveTo, setOpen } = useAssistantDock()
+  const { side, moveTo, setOpen, show } = useAssistantDock()
   const { isOpen, setIsOpen } = useRailContext()
   // LOCAL: chats are kept per project; the panel opens on the latest one
   const { projectId } = useProjectContext()
@@ -66,6 +67,16 @@ export default function AssistantPanel() {
       active = false
     }
   }, [projectId])
+
+  // LOCAL: a question from the selection menu shows the chat it goes to
+  useEffect(
+    () =>
+      onAskAssistant(() => {
+        setShowHistory(false)
+        show()
+      }),
+    [show]
+  )
 
   const newChat = () => {
     setShowHistory(false)

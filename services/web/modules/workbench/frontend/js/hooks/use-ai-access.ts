@@ -8,7 +8,7 @@ type AiAccess = {
   chat: boolean
   errorAssistant: boolean
   models: AiModel[]
-  defaultEfforts: string[]
+  defaultModel: AiModel | null
 }
 let access: Promise<AiAccess> | undefined
 
@@ -19,17 +19,17 @@ function getAccess() {
         allowed: boolean
         errorAssistant: boolean
         models?: AiModel[]
-        defaultEfforts?: string[]
+        defaultModel?: AiModel | null
       }) => ({
         chat: data.allowed === true,
         errorAssistant: data.errorAssistant === true,
         models: Array.isArray(data.models) ? data.models : [],
-        defaultEfforts: Array.isArray(data.defaultEfforts) ? data.defaultEfforts : [],
+        defaultModel: data.defaultModel ?? null,
       })
     )
     .catch(() => {
       access = undefined
-      return { chat: false, errorAssistant: false, models: [], defaultEfforts: [] }
+      return { chat: false, errorAssistant: false, models: [], defaultModel: null }
     })
   return access
 }
@@ -52,20 +52,19 @@ export default function useAiAccess(feature: 'chat' | 'errorAssistant' = 'chat')
   return ai && allowed
 }
 
-// LOCAL: the models an admin lets users pick in the chat, and the reasoning
-// efforts of the default model
+// LOCAL: the models an admin lets users pick in the chat, and the default one
 export function useAiModels() {
   const { ai } = useInstanceFeatures()
-  const [choices, setChoices] = useState<{ models: AiModel[]; defaultEfforts: string[] }>({
+  const [choices, setChoices] = useState<{ models: AiModel[]; defaultModel: AiModel | null }>({
     models: [],
-    defaultEfforts: [],
+    defaultModel: null,
   })
 
   useEffect(() => {
     if (!ai) return
     let active = true
     getAccess().then(value => {
-      if (active) setChoices({ models: value.models, defaultEfforts: value.defaultEfforts })
+      if (active) setChoices({ models: value.models, defaultModel: value.defaultModel })
     })
     return () => {
       active = false

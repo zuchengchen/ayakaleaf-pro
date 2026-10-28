@@ -12,7 +12,9 @@ import { useEditorOpenDocContext } from '@/features/ide-react/context/editor-ope
 import { useEditorManagerContext } from '@/features/ide-react/context/editor-manager-context'
 import { useEditorViewContext } from '@/features/ide-react/context/editor-view-context'
 import { useFileTreePathContext } from '@/features/file-tree/contexts/file-tree-path'
-import { applyEdit, revertEdit, wordDiff } from '../agent/apply-edit'
+import { applyEdit, findEdit, revealRange, revertEdit, wordDiff } from '../agent/apply-edit'
+import { hideProposal, showProposal } from '../agent/proposal-highlight'
+import { usePendingEdits } from './pending-edits'
 import type { Respond } from '../agent/tools'
 import { ChatNotice } from './notices'
 import { flatGhost, framed, muted, plain, useChangeColors } from './themed'
@@ -98,6 +100,11 @@ export default function EditProposal({ part, respond }: { part: EditPart; respon
   const [problem, setProblem] = useState<string | null>(null)
   const pending = part.state === 'input-available'
   const settled = part.state === 'output-available'
+  const pendingEdits = usePendingEdits()
+  const { view } = useEditorViewContext()
+  const { currentDocumentId } = useEditorOpenDocContext()
+  const { pathInFolder } = useFileTreePathContext()
+  const openPath = currentDocumentId ? pathInFolder(currentDocumentId) : null
 
   const answer = (outcome: { output: string } | { errorText: string }) =>
     respond(
@@ -120,7 +127,7 @@ export default function EditProposal({ part, respond }: { part: EditPart; respon
     }
   }
 
-  const apply = () =>
+  const apply = (): Promise<void> =>
     inDocument(view => {
       try {
         applyEdit(view, input)
@@ -129,6 +136,48 @@ export default function EditProposal({ part, respond }: { part: EditPart; respon
         return
       }
       answer({ output: 'Edit applied.' })
+    })
+
+  const reject = () => answer({ errorText: 'The user declined this edit.' })
+
+  // LOCAL: show the edit in the document, offer it to Apply all, and apply it
+  // at once with auto-apply
+  const latest = useRef({ apply, reject })
+  latest.current = { apply, reject }
+  const { toolCallId } = part
+  const autoApplied = useRef(false)
+  useEffect(() => {
+    if (!pending || !pendingEdits) return
+    if (pendingEdits.autoApply && !autoApplied.current) {
+      autoApplied.current = true
+      latest.current.apply()
+      return
+    }
+    pendingEdits.register(toolCallId, {
+      path: input.path,
+      startLine: input.startLine,
+      apply: () => latest.current.apply(),
+      reject: () => latest.current.reject(),
+    })
+    return () => pendingEdits.unregister(toolCallId)
+  }, [pending, pendingEdits?.autoApply, pendingEdits?.register, pendingEdits?.unregister, toolCallId, input?.path, input?.startLine]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    // input is undefined while the call is still streaming in
+    if (!pending || !view || openPath !== input?.path) return
+    // The editor swaps in the document a moment after it becomes current
+    const timer = window.setTimeout(() => showProposal(view, toolCallId, input), 150)
+    return () => {
+      window.clearTimeout(timer)
+      hideProposal(view, toolCallId)
+    }
+  }, [pending, view, openPath, input, toolCallId])
+
+  const reveal = () =>
+    inDocument(view => {
+      const shown = settled && !reverted ? { ...input, oldText: input.newText } : input
+      const from = findEdit(view, shown)
+      if (from !== null) revealRange(view, from, from + shown.oldText.length)
     })
 
   const toggleApplied = () =>
@@ -145,14 +194,19 @@ export default function EditProposal({ part, respond }: { part: EditPart; respon
       {input.reason && <p className="mb-0">{input.reason}</p>}
       <div
         className="d-flex gap-3 rounded p-2"
-        style={{ ...framed, backgroundColor: 'var(--bg-primary-themed)', fontSize: 'var(--font-size-01)' }}
+        style={{ ...framed, backgroundColor: 'var(--bg-primary-themed)', fontSize: 'var(--font-size-01)', cursor: 'pointer' }}
+        title="Show in the editor"
+        onClick={reveal}
       >
         <button
           type="button"
           className="btn btn-link btn-sm p-0 align-self-start text-decoration-none"
           style={{ ...muted, fontSize: 'inherit' }}
           title="Show this line in the PDF"
-          onClick={() => syncToEntry({ file: input.path, line: input.startLine, column: 0 })}
+          onClick={event => {
+            event.stopPropagation()
+            syncToEntry({ file: input.path, line: input.startLine, column: 0 })
+          }}
         >
           {input.startLine}
         </button>
@@ -176,7 +230,7 @@ export default function EditProposal({ part, respond }: { part: EditPart; respon
               variant="secondary"
               size="sm"
               disabled={busy}
-              onClick={() => answer({ errorText: 'The user declined this edit.' })}
+              onClick={reject}
             >
               {t('reject')}
             </OLButton>

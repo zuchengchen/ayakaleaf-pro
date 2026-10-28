@@ -1050,9 +1050,20 @@ module.exports = {
         __dirname,
         '../modules/error-assistant/frontend/js/last-fix-store'
       ),
+      // LOCAL: marks the lines of pending AI edit proposals
+      Path.resolve(
+        __dirname,
+        '../modules/workbench/frontend/js/agent/proposal-highlight'
+      ),
     ],
     sourceEditorVisualExtensions: [],
-    sourceEditorComponents: [],
+    // LOCAL: ask the AI assistant about the selected text
+    sourceEditorComponents: [
+      Path.resolve(
+        __dirname,
+        '../modules/workbench/frontend/js/selection-ask-action'
+      ),
+    ],
     pdfLogEntryHeaderActionComponents: [
       Path.resolve(
         __dirname,
@@ -1080,7 +1091,13 @@ module.exports = {
         '../modules/symbol-palette/frontend/js/components/symbol-palette'
       ),
     ],
-    sourceEditorToolbarStartButtons: [],
+    // LOCAL: open the AI assistant from the editor toolbar
+    sourceEditorToolbarStartButtons: [
+      Path.resolve(
+        __dirname,
+        '../modules/workbench/frontend/js/assistant-toolbar-button'
+      ),
+    ],
     sourceEditorToolbarButtonGroups: [],
     sourceEditorToolbarComponents: [],
     sourceEditorToolbarEndButtons: [],

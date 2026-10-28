@@ -30,6 +30,9 @@ import { TOOLS, type Respond } from '../agent/tools'
 import { AiUnavailableError, QuotaExceededError, ToolBudgetError, ToolRefusal } from '../errors'
 import MessageView, { CONTEXT_OPEN } from './message-view'
 import Composer, { type Draft } from './composer'
+import ComposerMenus from './composer-menus'
+import { PendingEditsBar, PendingEditsProvider } from './pending-edits'
+import { onAskAssistant } from '../assistant-events'
 import StarterPrompts from './starter-prompts'
 import ConsentCard from './consent-card'
 import { AiOffNotice, ChatFailedNotice, ChatNotice, QuotaNotice } from './notices'
@@ -104,17 +107,20 @@ export default function ChatView({
   const { hasGivenAiConsent } = useAiConsent()
   const hasAccess = useAiAccess()
   // LOCAL: the model the user picked, if the admin offers a choice
-  const { models, defaultEfforts } = useAiModels()
+  const { models, defaultModel } = useAiModels()
   const [pickedModel, setPickedModel] = usePersistedState<string>('workbench.model', '')
   const model = models.some(option => option.id === pickedModel) ? pickedModel : ''
   const modelRef = useRef(model)
   modelRef.current = model
   // and the reasoning effort, among those the model offers
-  const efforts = model ? models.find(option => option.id === model)?.efforts ?? [] : defaultEfforts
+  const efforts =
+    (model ? models.find(option => option.id === model)?.efforts : defaultModel?.efforts) ?? []
   const [pickedEffort, setPickedEffort] = usePersistedState<string>('workbench.reasoningEffort', '')
   const effort = efforts.includes(pickedEffort) ? pickedEffort : ''
   const effortRef = useRef(effort)
   effortRef.current = effort
+  // and whether proposed edits are applied without asking
+  const [autoApply, setAutoApply] = usePersistedState<boolean>('workbench.autoApply', false)
   const aiOffHere = getMeta('ol-showAiFeaturesDisabled')
   const { signal } = useAbortController()
   const actions = useProjectActions()
@@ -346,6 +352,11 @@ export default function ChatView({
     [canChat, path, selection, sendMessage, setMessages]
   )
 
+  // LOCAL: questions from the editor's selection menu
+  const sendRef = useRef(send)
+  sendRef.current = send
+  useEffect(() => onAskAssistant(text => sendRef.current({ text, files: [] })), [])
+
   const { box, onScroll } = useFollowBottom(messages)
   const selectionNote = selection.length
     ? `${path.split('/').pop()}: ${selection.map(r => (r.fromLine === r.toLine ? r.fromLine : `${r.fromLine}-${r.toLine}`)).join(', ')}`
@@ -381,6 +392,7 @@ export default function ChatView({
 
   return (
     // The editor's panels use the 14px body size; the disclaimer 12px
+    <PendingEditsProvider autoApply={autoApply}>
     <div className="d-flex flex-column h-100" style={{ ...plain, fontSize: 'var(--font-size-02)' }}>
       <div
         ref={box}
@@ -392,6 +404,7 @@ export default function ChatView({
         {body}
         {aiOffHere && <AiOffNotice />}
       </div>
+      <PendingEditsBar />
       {hasAccess &&
         (getMeta('ol-showAiFeatures') ? (
           <AiPaywallNotification isActionBelowContent featureLocation="workbench" />
@@ -408,12 +421,19 @@ export default function ChatView({
           onSend={send}
           onStop={stopReply}
           onProblem={message => setProblem(message)}
-          models={models}
-          model={model}
-          onModelChange={setPickedModel}
-          efforts={efforts}
-          effort={effort}
-          onEffortChange={setPickedEffort}
+          menus={
+            <ComposerMenus
+              models={models}
+              defaultModel={defaultModel}
+              model={model}
+              onModelChange={setPickedModel}
+              efforts={efforts}
+              effort={effort}
+              onEffortChange={setPickedEffort}
+              autoApply={autoApply}
+              onAutoApplyChange={setAutoApply}
+            />
+          }
         />
         {/* One line, or a break after the first sentence */}
         <p
@@ -425,5 +445,6 @@ export default function ChatView({
         </p>
       </div>
     </div>
+    </PendingEditsProvider>
   )
 }

@@ -14,7 +14,7 @@ import {
   loadAiConfig,
   isConfigured,
   getSelectableModels,
-  getDefaultEfforts,
+  getDefaultModel,
   resolveModel,
   resolveReasoningEffort,
   hasPdf,
@@ -272,7 +272,7 @@ export default {
       errorAssistant: access.errorAssistant,
       // LOCAL: the models users may pick in the chat
       models: access.chat ? getSelectableModels() : [],
-      defaultEfforts: access.chat ? getDefaultEfforts() : [],
+      defaultModel: access.chat ? getDefaultModel() : null,
     })
   }),
   chat,

@@ -19,7 +19,15 @@ function RailContent() {
 }
 
 function RailIcon({ title }: { open: boolean; title: string }) {
-  return <MaterialIcon type="auto_awesome" className="ide-rail-tab-link-icon" accessibilityLabel={title} />
+  // LOCAL: in the green of the toolbar's AI button, so it stands out
+  return (
+    <MaterialIcon
+      type="auto_awesome"
+      className="ide-rail-tab-link-icon"
+      style={{ color: 'var(--green-50)' }}
+      accessibilityLabel={title}
+    />
+  )
 }
 
 export default {

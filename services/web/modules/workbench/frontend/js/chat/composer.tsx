@@ -3,15 +3,15 @@
  * paste or drop,
  * a note of the selected lines that go along, and send or stop.
  */
-import { forwardRef, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FileUIPart } from 'ai'
 import OLIconButton from '@/shared/components/ol/ol-icon-button'
 import OLTooltip from '@/shared/components/ol/ol-tooltip'
 import MaterialIcon from '@/shared/components/material-icon'
-import { boxed, flatGhost, muted, plain, surface } from './themed'
+import { boxed, flatGhost, plain, surface } from './themed'
 import ImagePreview from './image-preview'
-import type { AiModel } from '../hooks/use-ai-access'
+import { readInputHistory, rememberInput } from './input-history'
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 const MAX_ROWS = 8
@@ -19,16 +19,6 @@ const MAX_ROWS = 8
 export type Draft = { text: string; files: FileUIPart[] }
 
 const isPdf = (file: File) => file.type === 'application/pdf'
-
-/** Models by provider; one provider needs no groups. */
-function modelGroups(models: AiModel[]): [string, AiModel[]][] {
-  const groups = new Map<string, AiModel[]>()
-  for (const model of models) {
-    const provider = model.provider ?? ''
-    groups.set(provider, [...(groups.get(provider) ?? []), model])
-  }
-  return groups.size > 1 ? [...groups] : [['', models]]
-}
 
 function readAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -47,36 +37,18 @@ const Composer = forwardRef<
     onSend: (draft: Draft) => void
     onStop: () => void
     onProblem: (message: string | false) => void
-    // LOCAL: models and reasoning efforts the user can pick; '' is the
-    // admin's default
-    models?: AiModel[]
-    model?: string
-    onModelChange?: (model: string) => void
-    efforts?: string[]
-    effort?: string
-    onEffortChange?: (effort: string) => void
+    // LOCAL: the model, effort and auto-apply menus
+    menus?: ReactNode
   }
->(function Composer(
-  {
-    working,
-    selectionNote,
-    onSend,
-    onStop,
-    onProblem,
-    models = [],
-    model = '',
-    onModelChange,
-    efforts = [],
-    effort = '',
-    onEffortChange,
-  },
-  ref
-) {
+>(function Composer({ working, selectionNote, onSend, onStop, onProblem, menus }, ref) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [focused, setFocused] = useState(false)
   const [attached, setAttached] = useState<File[]>([])
   const picker = useRef<HTMLInputElement>(null)
+  // LOCAL: where ↑/↓ are in the earlier input, and the text before them
+  const recalled = useRef<number | null>(null)
+  const draft = useRef('')
   // Object URLs for the image previews, released when the files change or go
   const previews = useMemo(
     () => attached.map(file => (isPdf(file) ? undefined : URL.createObjectURL(file))),
@@ -106,11 +78,43 @@ const Composer = forwardRef<
       }))
     )
     onSend({ text, files })
+    rememberInput(text)
+    recalled.current = null
     setText('')
     setAttached([])
   }
 
+  // ↑ on the first line goes back through the earlier input, ↓ on the last
+  // line forward and finally to what was being written
+  const recall = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    const box = event.currentTarget
+    if (event.nativeEvent.isComposing || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) return
+    if (box.selectionStart !== box.selectionEnd) return
+    const history = readInputHistory()
+    let next: number | null
+    if (event.key === 'ArrowUp' && !text.slice(0, box.selectionStart).includes('\n')) {
+      if (!history.length) return
+      if (recalled.current === null) draft.current = text
+      next = recalled.current === null ? history.length - 1 : Math.max(0, recalled.current - 1)
+    } else if (
+      event.key === 'ArrowDown' &&
+      recalled.current !== null &&
+      !text.slice(box.selectionEnd).includes('\n')
+    ) {
+      next = recalled.current + 1 < history.length ? recalled.current + 1 : null
+    } else {
+      return
+    }
+    event.preventDefault()
+    recalled.current = next
+    const value = next === null ? draft.current : history[next]
+    setText(value)
+    window.requestAnimationFrame(() => box.setSelectionRange(value.length, value.length))
+  }
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    recall(event)
+    if (event.defaultPrevented) return
     // Enter while an input method is composing picks a candidate
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault()
@@ -186,63 +190,16 @@ const Composer = forwardRef<
         rows={rows}
         placeholder={t('what_would_you_like_to_do')}
         value={text}
-        onChange={event => setText(event.target.value)}
+        onChange={event => {
+          recalled.current = null
+          setText(event.target.value)
+        }}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
-      {(models.length > 0 || efforts.length > 0) && (
-        <div className="d-flex align-items-center gap-1" style={{ minWidth: 0 }}>
-          {models.length > 0 && (
-            <select
-              className="form-select form-select-sm w-auto border-0 shadow-none text-truncate ps-1"
-              style={{ ...plain, backgroundColor: 'transparent', minWidth: 0 }}
-              aria-label="Model"
-              value={model}
-              onChange={event => onModelChange?.(event.target.value)}
-            >
-              <option value="">Default</option>
-              {modelGroups(models).map(([provider, group]) =>
-                provider ? (
-                  <optgroup key={provider} label={provider}>
-                    {group.map(option => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ) : (
-                  group.map(option => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))
-                )
-              )}
-            </select>
-          )}
-          {efforts.length > 0 && (
-            <span className="d-inline-flex align-items-center flex-shrink-0" title="Reasoning effort">
-              <MaterialIcon type="psychology" style={muted} />
-              <select
-                className="form-select form-select-sm w-auto border-0 shadow-none ps-1"
-                style={{ ...plain, backgroundColor: 'transparent' }}
-                aria-label="Reasoning effort"
-                value={effort}
-                onChange={event => onEffortChange?.(event.target.value)}
-              >
-                <option value="">Auto</option>
-                {efforts.map(level => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
-            </span>
-          )}
-        </div>
-      )}
+      {menus}
       <div className="d-flex align-items-center">
         <input
           ref={picker}

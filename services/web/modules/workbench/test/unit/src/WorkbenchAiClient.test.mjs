@@ -82,7 +82,7 @@ describe('WorkbenchAiClient', function () {
       { id: 'pick', label: 'a-pick', provider: 'Gateway A', efforts: [] },
       { id: 'vision', label: 'Vision', provider: 'Gateway B', efforts: ['medium'] },
     ])
-    expect(ctx.Client.getDefaultEfforts()).toEqual(['low', 'high'])
+    expect(ctx.Client.getDefaultModel()).toEqual({ id: 'chat', label: 'Chat', efforts: ['low', 'high'] })
   })
 
   it('sends a reasoning effort only to a model that offers it', function (ctx) {

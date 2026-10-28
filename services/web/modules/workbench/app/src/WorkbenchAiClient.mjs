@@ -108,9 +108,16 @@ export function getSelectableModels() {
   )
 }
 
-export function getDefaultEfforts() {
+/** The default chat model as { id, label, efforts }, or null. */
+export function getDefaultModel() {
   const config = AiProviderStore.current()
-  return AiProviderStore.findModel(config, config.roles.chat)?.model.efforts || []
+  const found = AiProviderStore.findModel(config, config.roles.chat)
+  if (!found) return null
+  return {
+    id: found.model.id,
+    label: found.model.label || found.model.model,
+    efforts: found.model.efforts || [],
+  }
 }
 
 /** The model for one use (see AiProviderStore.ROLES); unset uses the chat model. */
@@ -203,7 +210,7 @@ export default {
   isConfigured,
   createProvider,
   getSelectableModels,
-  getDefaultEfforts,
+  getDefaultModel,
   getRoleModel,
   resolveModel,
   resolveReasoningEffort,

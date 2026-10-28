@@ -28,6 +28,9 @@ type AssistantDock = {
   open: boolean
   setOpen: (open: boolean) => void
   host: HTMLDivElement
+  // LOCAL: open the assistant where it is docked, or toggle it
+  show: () => void
+  toggle: () => void
 }
 
 const DockContext = createContext<AssistantDock | null>(null)
@@ -83,7 +86,21 @@ const AssistantDockProvider: FC<PropsWithChildren> = ({ children }) => {
     [openTab, selectTab, setIsOpen]
   )
 
-  const value = useMemo(() => ({ side, moveTo, open, setOpen, host }), [side, moveTo, open, host])
+  const shown = side === 'left' ? isOpen && selectedTab === 'workbench' : open
+  const show = useCallback(() => {
+    if (side === 'left') openTab('workbench')
+    else setOpen(true)
+  }, [side, openTab])
+  const toggle = useCallback(() => {
+    if (!shown) show()
+    else if (side === 'left') setIsOpen(false)
+    else setOpen(false)
+  }, [shown, show, side, setIsOpen])
+
+  const value = useMemo(
+    () => ({ side, moveTo, open, setOpen, host, show, toggle }),
+    [side, moveTo, open, host, show, toggle]
+  )
   return <DockContext.Provider value={value}>{children}</DockContext.Provider>
 }
 
