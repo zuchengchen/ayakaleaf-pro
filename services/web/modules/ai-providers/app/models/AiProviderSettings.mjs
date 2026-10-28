@@ -10,6 +10,9 @@ const ModelSchema = new Schema(
     label: { type: String, default: '' },
     // Offered to users in the chat's model menu
     selectable: { type: Boolean, default: false },
+    // Reasoning efforts users can pick, sent as reasoning_effort; none when
+    // the model has no such setting
+    efforts: { type: [String], default: [] },
   },
   { _id: false }
 )

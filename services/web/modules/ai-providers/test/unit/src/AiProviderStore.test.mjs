@@ -15,7 +15,7 @@ function providerInput(overrides = {}) {
     baseURL: 'https://api.openai.com/v1/',
     apiKey: 'sk-secret-1234',
     models: [
-      { id: 'm1', model: 'gpt-4o', label: 'GPT-4o', selectable: true },
+      { id: 'm1', model: 'gpt-4o', label: 'GPT-4o', selectable: true, efforts: [' High', 'low', 'high'] },
       { id: 'm2', model: 'gpt-4o-mini', label: '', selectable: false },
     ],
     ...overrides,
@@ -113,6 +113,26 @@ describe('AiProviderStore', function () {
         pdf: 'm2',
         errorAssistant: null,
       })
+    })
+
+    it('keeps the reasoning efforts, cleaned up', async function (ctx) {
+      await ctx.Store.save(configInput())
+      const [first, second] = ctx.Store.current().providers[0].models
+      expect(first.efforts).toEqual(['high', 'low'])
+      expect(second.efforts).toEqual([])
+    })
+
+    it('refuses an invalid reasoning effort', async function (ctx) {
+      await expect(
+        ctx.Store.save(
+          configInput({
+            providers: [
+              providerInput({ models: [{ id: 'm1', model: 'a', efforts: ['very high!'] }] }),
+            ],
+            roles: { chat: 'm1' },
+          })
+        )
+      ).to.be.rejectedWith('invalid level')
     })
 
     it('keeps the saved key when the key is left blank', async function (ctx) {

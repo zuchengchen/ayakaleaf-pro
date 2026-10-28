@@ -14,7 +14,9 @@ import {
   loadAiConfig,
   isConfigured,
   getSelectableModels,
+  getDefaultEfforts,
   resolveModel,
+  resolveReasoningEffort,
   hasPdf,
   getMaxSteps,
   SYSTEM_PROMPT,
@@ -79,11 +81,13 @@ async function chat(req, res) {
 
   // summary: the earlier turns, summarized by a previous request
   // model: the id of a model the user picked, if any
-  const { messages, summary, model } = req.body || {}
+  // reasoningEffort: the reasoning effort the user picked, if any
+  const { messages, summary, model, reasoningEffort } = req.body || {}
   if (
     !Array.isArray(messages) ||
     (summary !== undefined && typeof summary !== 'string') ||
-    (model != null && typeof model !== 'string')
+    (model != null && typeof model !== 'string') ||
+    (reasoningEffort != null && typeof reasoningEffort !== 'string')
   ) {
     return res.status(400).json({ error: 'invalid_request' })
   }
@@ -173,6 +177,7 @@ async function chat(req, res) {
   }
 
   const resolvedModel = resolveModel(history, model)
+  const effort = resolveReasoningEffort(history, model, reasoningEffort)
 
   try {
     const result = streamText({
@@ -183,6 +188,8 @@ async function chat(req, res) {
       system,
       messages: modelMessages,
       tools,
+      // LOCAL: sent as reasoning_effort, only to models that offer it
+      ...(effort && { providerOptions: { openaiCompatible: { reasoningEffort: effort } } }),
       // Finish the current step for its usage report, but stop after a disconnect.
       stopWhen: [toolCallLimit.exhausted, () => res.destroyed],
       onStepFinish: async ({ usage }) => {
@@ -265,6 +272,7 @@ export default {
       errorAssistant: access.errorAssistant,
       // LOCAL: the models users may pick in the chat
       models: access.chat ? getSelectableModels() : [],
+      defaultEfforts: access.chat ? getDefaultEfforts() : [],
     })
   }),
   chat,

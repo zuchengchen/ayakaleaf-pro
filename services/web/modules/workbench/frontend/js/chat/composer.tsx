@@ -9,7 +9,7 @@ import type { FileUIPart } from 'ai'
 import OLIconButton from '@/shared/components/ol/ol-icon-button'
 import OLTooltip from '@/shared/components/ol/ol-tooltip'
 import MaterialIcon from '@/shared/components/material-icon'
-import { boxed, flatGhost, plain, surface } from './themed'
+import { boxed, flatGhost, muted, plain, surface } from './themed'
 import ImagePreview from './image-preview'
 import type { AiModel } from '../hooks/use-ai-access'
 
@@ -19,6 +19,16 @@ const MAX_ROWS = 8
 export type Draft = { text: string; files: FileUIPart[] }
 
 const isPdf = (file: File) => file.type === 'application/pdf'
+
+/** Models by provider; one provider needs no groups. */
+function modelGroups(models: AiModel[]): [string, AiModel[]][] {
+  const groups = new Map<string, AiModel[]>()
+  for (const model of models) {
+    const provider = model.provider ?? ''
+    groups.set(provider, [...(groups.get(provider) ?? []), model])
+  }
+  return groups.size > 1 ? [...groups] : [['', models]]
+}
 
 function readAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -37,13 +47,29 @@ const Composer = forwardRef<
     onSend: (draft: Draft) => void
     onStop: () => void
     onProblem: (message: string | false) => void
-    // LOCAL: models the user can pick; '' is the admin's default
+    // LOCAL: models and reasoning efforts the user can pick; '' is the
+    // admin's default
     models?: AiModel[]
     model?: string
     onModelChange?: (model: string) => void
+    efforts?: string[]
+    effort?: string
+    onEffortChange?: (effort: string) => void
   }
 >(function Composer(
-  { working, selectionNote, onSend, onStop, onProblem, models = [], model = '', onModelChange },
+  {
+    working,
+    selectionNote,
+    onSend,
+    onStop,
+    onProblem,
+    models = [],
+    model = '',
+    onModelChange,
+    efforts = [],
+    effort = '',
+    onEffortChange,
+  },
   ref
 ) {
   const { t } = useTranslation()
@@ -166,6 +192,57 @@ const Composer = forwardRef<
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
+      {(models.length > 0 || efforts.length > 0) && (
+        <div className="d-flex align-items-center gap-1" style={{ minWidth: 0 }}>
+          {models.length > 0 && (
+            <select
+              className="form-select form-select-sm w-auto border-0 shadow-none text-truncate ps-1"
+              style={{ ...plain, backgroundColor: 'transparent', minWidth: 0 }}
+              aria-label="Model"
+              value={model}
+              onChange={event => onModelChange?.(event.target.value)}
+            >
+              <option value="">Default</option>
+              {modelGroups(models).map(([provider, group]) =>
+                provider ? (
+                  <optgroup key={provider} label={provider}>
+                    {group.map(option => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  group.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))
+                )
+              )}
+            </select>
+          )}
+          {efforts.length > 0 && (
+            <span className="d-inline-flex align-items-center flex-shrink-0" title="Reasoning effort">
+              <MaterialIcon type="psychology" style={muted} />
+              <select
+                className="form-select form-select-sm w-auto border-0 shadow-none ps-1"
+                style={{ ...plain, backgroundColor: 'transparent' }}
+                aria-label="Reasoning effort"
+                value={effort}
+                onChange={event => onEffortChange?.(event.target.value)}
+              >
+                <option value="">Auto</option>
+                {efforts.map(level => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </span>
+          )}
+        </div>
+      )}
       <div className="d-flex align-items-center">
         <input
           ref={picker}
@@ -189,22 +266,6 @@ const Composer = forwardRef<
           />
         </OLTooltip>
         <span className="flex-grow-1" />
-        {models.length > 0 && (
-          <select
-            className="form-select form-select-sm w-auto me-1 border-0 shadow-none"
-            style={{ ...plain, backgroundColor: 'transparent', maxWidth: '60%' }}
-            aria-label="Model"
-            value={model}
-            onChange={event => onModelChange?.(event.target.value)}
-          >
-            <option value="">Default</option>
-            {models.map(option => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        )}
         {working ? (
           <OLIconButton icon="stop_circle" variant="ghost" style={{ ...flatGhost, ...plain }} accessibilityLabel={t('stop')} onClick={onStop} />
         ) : (

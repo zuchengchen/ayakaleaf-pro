@@ -96,6 +96,7 @@ export default function ProviderCard({
             <th scope="col">Model name</th>
             <th scope="col">Display name</th>
             <th scope="col">Users can choose</th>
+            <th scope="col">Reasoning efforts</th>
             <th scope="col" aria-label="Actions" />
           </tr>
         </thead>
@@ -128,6 +129,17 @@ export default function ProviderCard({
                   onChange={event => setModel(index, { selectable: event.target.checked })}
                 />
               </td>
+              <td>
+                <OLFormControl
+                  size="sm"
+                  aria-label="Reasoning efforts"
+                  value={model.efforts.join(', ')}
+                  placeholder="low, medium, high"
+                  onChange={event =>
+                    setModel(index, { efforts: event.target.value.split(',').map(level => level.trim()) })
+                  }
+                />
+              </td>
               <td className="text-nowrap">
                 <OLButton
                   size="sm"
@@ -156,12 +168,17 @@ export default function ProviderCard({
         leadingIcon="add"
         onClick={() =>
           set({
-            models: [...provider.models, { id: newId(), model: '', label: '', selectable: false }],
+            models: [...provider.models, { id: newId(), model: '', label: '', selectable: false, efforts: [] }],
           })
         }
       >
         Add model
       </OLButton>
+      <OLFormText>
+        Reasoning efforts are the levels the model accepts as{' '}
+        <code>reasoning_effort</code>, such as low, medium and high. Leave them
+        blank for a model without that setting.
+      </OLFormText>
     </OLPageContentCard>
   )
 }

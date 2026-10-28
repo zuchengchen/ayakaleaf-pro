@@ -128,7 +128,7 @@ export default function AiProvidersPage() {
           apiKey: '',
           apiKeyHint: '',
           hasApiKey: false,
-          models: [{ id: newId(), model: '', label: '', selectable: false }],
+          models: [{ id: newId(), model: '', label: '', selectable: false, efforts: [] }],
         },
       ],
     })
@@ -296,7 +296,9 @@ export default function AiProvidersPage() {
             <OLFormText>
               Models marked &quot;Users can choose&quot; are listed in the
               chat&apos;s model menu. A model a user picks there is used for
-              their whole chat, with images and PDF files too.
+              their whole chat, with images and PDF files too. Users can also
+              pick one of a model&apos;s reasoning efforts, which is sent as{' '}
+              <code>reasoning_effort</code>.
             </OLFormText>
           </OLPageContentCard>
 

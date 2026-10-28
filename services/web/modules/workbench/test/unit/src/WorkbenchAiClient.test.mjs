@@ -23,20 +23,22 @@ describe('WorkbenchAiClient', function () {
       providers: [
         {
           id: 'a',
+          name: 'Gateway A',
           baseURL: 'https://a.example.com/v1',
           apiKey: 'key-a',
           models: [
-            { id: 'chat', model: 'a-chat', label: 'Chat', selectable: false },
-            { id: 'pick', model: 'a-pick', label: '', selectable: true },
+            { id: 'chat', model: 'a-chat', label: 'Chat', selectable: false, efforts: ['low', 'high'] },
+            { id: 'pick', model: 'a-pick', label: '', selectable: true, efforts: [] },
           ],
         },
         {
           id: 'b',
+          name: 'Gateway B',
           baseURL: 'https://b.example.com/v1',
           apiKey: 'key-b',
           models: [
             { id: 'pdf', model: 'b-pdf', label: 'PDF', selectable: false },
-            { id: 'vision', model: 'b-vision', label: 'Vision', selectable: true },
+            { id: 'vision', model: 'b-vision', label: 'Vision', selectable: true, efforts: ['medium'] },
           ],
         },
       ],
@@ -77,9 +79,20 @@ describe('WorkbenchAiClient', function () {
 
   it('lists the models users can pick', function (ctx) {
     expect(ctx.Client.getSelectableModels()).toEqual([
-      { id: 'pick', label: 'a-pick' },
-      { id: 'vision', label: 'Vision' },
+      { id: 'pick', label: 'a-pick', provider: 'Gateway A', efforts: [] },
+      { id: 'vision', label: 'Vision', provider: 'Gateway B', efforts: ['medium'] },
     ])
+    expect(ctx.Client.getDefaultEfforts()).toEqual(['low', 'high'])
+  })
+
+  it('sends a reasoning effort only to a model that offers it', function (ctx) {
+    expect(ctx.Client.resolveReasoningEffort([], null, 'high')).toBe('high')
+    expect(ctx.Client.resolveReasoningEffort([], null, 'medium')).toBeUndefined()
+    expect(ctx.Client.resolveReasoningEffort([], 'vision', 'medium')).toBe('medium')
+    expect(ctx.Client.resolveReasoningEffort([], 'pick', 'high')).toBeUndefined()
+    // A chat with a PDF file goes to the PDF model, which has no efforts
+    expect(ctx.Client.resolveReasoningEffort([pdfMessage], null, 'high')).toBeUndefined()
+    expect(ctx.Client.resolveReasoningEffort([], null, null)).toBeUndefined()
   })
 
   it('uses the chat model by default', function (ctx) {

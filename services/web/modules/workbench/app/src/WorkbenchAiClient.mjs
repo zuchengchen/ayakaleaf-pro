@@ -90,14 +90,27 @@ function languageModel(config, modelId) {
   return _providers.get(key)(model.model)
 }
 
-/** The models users can pick in the chat, as { id, label }. */
+/**
+ * The models users can pick in the chat, as { id, label, provider, efforts },
+ * and the reasoning efforts of the default chat model.
+ */
 export function getSelectableModels() {
   const config = AiProviderStore.current()
   return config.providers.flatMap(provider =>
     provider.models
       .filter(model => model.selectable)
-      .map(model => ({ id: model.id, label: model.label || model.model }))
+      .map(model => ({
+        id: model.id,
+        label: model.label || model.model,
+        provider: provider.name,
+        efforts: model.efforts || [],
+      }))
   )
+}
+
+export function getDefaultEfforts() {
+  const config = AiProviderStore.current()
+  return AiProviderStore.findModel(config, config.roles.chat)?.model.efforts || []
 }
 
 /** The model for one use (see AiProviderStore.ROLES); unset uses the chat model. */
@@ -124,12 +137,28 @@ export function hasPdf(messages = []) {
  */
 export function resolveModel(messages = [], choice = null) {
   const config = AiProviderStore.current()
+  return languageModel(config, resolveModelId(config, messages, choice))
+}
+
+/**
+ * The reasoning effort to send with a chat request: the user's pick, if the
+ * model resolveModel picks offers it.
+ */
+export function resolveReasoningEffort(messages = [], choice = null, effort = null) {
+  if (!effort) return undefined
+  const config = AiProviderStore.current()
+  const found = AiProviderStore.findModel(config, resolveModelId(config, messages, choice))
+  return found?.model.efforts?.includes(effort) ? effort : undefined
+}
+
+function resolveModelId(config, messages, choice) {
+  const role = id => (AiProviderStore.findModel(config, id) ? id : config.roles.chat)
   if (choice && AiProviderStore.findModel(config, choice)?.model.selectable) {
-    return languageModel(config, choice)
+    return choice
   }
   // Follow-up requests retain earlier attachments, so route the entire conversation.
   if (config.roles.pdf && hasPdf(messages)) {
-    return getRoleModel('pdf')
+    return role(config.roles.pdf)
   }
   if (
     config.roles.image &&
@@ -141,9 +170,9 @@ export function resolveModel(messages = [], choice = null) {
       )
     )
   ) {
-    return getRoleModel('image')
+    return role(config.roles.image)
   }
-  return getRoleModel('chat')
+  return config.roles.chat
 }
 
 /** Maximum tool calls per user message, including automatic continuations. */
@@ -174,8 +203,10 @@ export default {
   isConfigured,
   createProvider,
   getSelectableModels,
+  getDefaultEfforts,
   getRoleModel,
   resolveModel,
+  resolveReasoningEffort,
   getMaxSteps,
   SYSTEM_PROMPT,
 }

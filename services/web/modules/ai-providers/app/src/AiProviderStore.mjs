@@ -18,6 +18,8 @@ const REFRESH_MS = 15 * 1000
 export const ROLES = ['chat', 'image', 'pdf', 'errorAssistant']
 export const ENV_PROVIDER_ID = 'env'
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,40}$/
+const EFFORT_PATTERN = /^[a-z][a-z0-9_-]{0,19}$/
+const MAX_EFFORTS = 8
 
 export class AiProviderValidationError extends OError {}
 
@@ -59,7 +61,7 @@ export function envConfig() {
     if (!model) return null
     let entry = models.find(m => m.model === model)
     if (!entry) {
-      entry = { id: `env-${models.length + 1}`, model, label: '', selectable: false }
+      entry = { id: `env-${models.length + 1}`, model, label: '', selectable: false, efforts: [] }
       models.push(entry)
     }
     return entry.id
@@ -120,6 +122,7 @@ async function fromDocument(doc) {
         model: m.model,
         label: m.label || '',
         selectable: Boolean(m.selectable),
+        efforts: m.efforts || [],
       })),
     })
   }
@@ -231,6 +234,17 @@ function baseUrl(value, field) {
   return url.replace(/\/+$/, '')
 }
 
+function efforts(value, field) {
+  if (value == null) return []
+  if (!Array.isArray(value)) fail(`${field} must be a list`)
+  const levels = [...new Set(value.map(level => String(level).trim().toLowerCase()).filter(Boolean))]
+  if (levels.length > MAX_EFFORTS) fail(`${field} has too many levels`)
+  for (const level of levels) {
+    if (!EFFORT_PATTERN.test(level)) fail(`${field} has an invalid level "${level}"`)
+  }
+  return levels
+}
+
 /**
  * The stored or environment key of a provider, for a form that left the key
  * blank to keep it.
@@ -281,6 +295,7 @@ async function toDocument(input) {
         optional: true,
       }),
       selectable: model.selectable === true,
+      efforts: efforts(model.efforts, `${label} model ${modelIndex + 1} reasoning efforts`),
     }))
     providers.push({ id, name, baseURL: url, apiKey: await encryptKey(apiKey), models })
   }

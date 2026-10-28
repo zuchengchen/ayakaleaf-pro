@@ -104,11 +104,17 @@ export default function ChatView({
   const { hasGivenAiConsent } = useAiConsent()
   const hasAccess = useAiAccess()
   // LOCAL: the model the user picked, if the admin offers a choice
-  const models = useAiModels()
+  const { models, defaultEfforts } = useAiModels()
   const [pickedModel, setPickedModel] = usePersistedState<string>('workbench.model', '')
   const model = models.some(option => option.id === pickedModel) ? pickedModel : ''
   const modelRef = useRef(model)
   modelRef.current = model
+  // and the reasoning effort, among those the model offers
+  const efforts = model ? models.find(option => option.id === model)?.efforts ?? [] : defaultEfforts
+  const [pickedEffort, setPickedEffort] = usePersistedState<string>('workbench.reasoningEffort', '')
+  const effort = efforts.includes(pickedEffort) ? pickedEffort : ''
+  const effortRef = useRef(effort)
+  effortRef.current = effort
   const aiOffHere = getMeta('ol-showAiFeaturesDisabled')
   const { signal } = useAbortController()
   const actions = useProjectActions()
@@ -175,6 +181,7 @@ export default function ChatView({
               summary: kept?.summary,
               enabledTools: SERVER_TOOLS,
               model: modelRef.current || undefined,
+              reasoningEffort: effortRef.current || undefined,
             },
           }
         },
@@ -404,6 +411,9 @@ export default function ChatView({
           models={models}
           model={model}
           onModelChange={setPickedModel}
+          efforts={efforts}
+          effort={effort}
+          onEffortChange={setPickedEffort}
         />
         {/* One line, or a break after the first sentence */}
         <p

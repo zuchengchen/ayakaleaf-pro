@@ -5,6 +5,8 @@ export type Model = {
   model: string
   label: string
   selectable: boolean
+  /** Reasoning efforts users can pick; empty for models without them */
+  efforts: string[]
 }
 
 export type Provider = {
