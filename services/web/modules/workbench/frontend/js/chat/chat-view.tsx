@@ -23,6 +23,8 @@ import useAbortController from '@/shared/hooks/use-abort-controller'
 import AiPaywallNotification from '@/shared/components/ai-paywall-notification'
 import useAiAccess, { useAiModels } from '../hooks/use-ai-access'
 import usePersistedState from '@/shared/hooks/use-persisted-state'
+import { useProjectContext } from '@/shared/context/project-context'
+import { saveChat } from '@modules/chat-history/frontend/js/api'
 import { useProjectActions } from '../hooks/use-project-actions'
 import { TOOLS, type Respond } from '../agent/tools'
 import { AiUnavailableError, QuotaExceededError, ToolBudgetError, ToolRefusal } from '../errors'
@@ -77,7 +79,18 @@ function useFollowBottom(trigger: unknown) {
   return { box, onScroll }
 }
 
-export default function ChatView({ chatId, view }: { chatId: string; view: EditorView }) {
+export default function ChatView({
+  chatId,
+  view,
+  initialMessages,
+  initialSummary = null,
+}: {
+  chatId: string
+  view: EditorView
+  // LOCAL: a chat reopened from the history
+  initialMessages?: UIMessage[]
+  initialSummary?: Summary | null
+}) {
   const {
     hasSuggestionsLeft,
     premiumSuggestionResetDate,
@@ -104,8 +117,8 @@ export default function ChatView({ chatId, view }: { chatId: string; view: Edito
 
   const [problem, setProblem] = useState<string | boolean>(false)
   const [quotaHit, setQuotaHit] = useState(false)
-  const [summary, setSummary] = useState<Summary | null>(null)
-  const summaryRef = useRef<Summary | null>(null)
+  const [summary, setSummary] = useState<Summary | null>(initialSummary)
+  const summaryRef = useRef<Summary | null>(initialSummary)
   // The open file the model was last told about
   const toldPath = useRef<string | null>(null)
   // Browser tools still running, and whether the user stopped the reply
@@ -179,6 +192,7 @@ export default function ChatView({ chatId, view }: { chatId: string; view: Edito
 
   const { messages, setMessages, sendMessage, addToolOutput, stop, status } = useChat({
     id: chatId,
+    messages: initialMessages,
     transport,
     // A tool that ends after Stop must not start the next step
     sendAutomaticallyWhen: options =>
@@ -248,6 +262,19 @@ export default function ChatView({ chatId, view }: { chatId: string; view: Edito
       }
     },
   })
+
+  // LOCAL: keep the chat in the history after each turn
+  const { projectId } = useProjectContext()
+  const lastSaved = useRef(initialMessages ? JSON.stringify(initialMessages) : '[]')
+  useEffect(() => {
+    if (status !== 'ready' && status !== 'error') return
+    const json = JSON.stringify(messages)
+    if (json === lastSaved.current) return
+    lastSaved.current = json
+    saveChat(projectId, chatId, { messages, summary: summaryRef.current }).catch(error =>
+      debugConsole.error(error)
+    )
+  }, [status, messages, projectId, chatId])
 
   // A new chat must not keep running when the panel goes away
   const stopRef = useRef(stop)

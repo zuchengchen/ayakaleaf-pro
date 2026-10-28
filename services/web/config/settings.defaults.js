@@ -1333,6 +1333,8 @@ module.exports = {
     'error-assistant',
     // LOCAL: admin page for AI gateways and models
     'ai-providers',
+    // LOCAL: AI assistant chat history
+    'chat-history',
     'instance-features',
     'open-in-overleaf'
   ],
