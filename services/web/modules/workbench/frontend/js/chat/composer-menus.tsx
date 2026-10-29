@@ -26,13 +26,24 @@ function modelGroups(models: AiModel[]): [string, AiModel[]][] {
   return groups.size > 1 ? [...groups] : [['', models]]
 }
 
-function ModelOptions({ models }: { models: AiModel[] }) {
+/** LOCAL: a model's name with how it is paid for, if billing says. */
+function withBilling(label: string, note: string | undefined) {
+  return note ? `${label} · ${note}` : label
+}
+
+function ModelOptions({
+  models,
+  describeModel,
+}: {
+  models: AiModel[]
+  describeModel?: (modelId: string) => string
+}) {
   return (
     <>
       {modelGroups(models).map(([provider, group]) => {
         const options = group.map(option => (
           <option key={option.id} value={option.id}>
-            {option.label}
+            {withBilling(option.label, describeModel?.(option.id))}
           </option>
         ))
         return provider ? (
@@ -52,6 +63,7 @@ export default function ComposerMenus({
   defaultModel,
   model,
   onModelChange,
+  describeModel,
   efforts,
   effort,
   onEffortChange,
@@ -63,6 +75,8 @@ export default function ComposerMenus({
   /** '' for the admin's default model */
   model: string
   onModelChange: (model: string) => void
+  /** LOCAL: free uses, VIP or price of a model, from ai-billing */
+  describeModel?: (modelId: string) => string
   efforts: string[]
   effort: string
   onEffortChange: (effort: string) => void
@@ -83,13 +97,15 @@ export default function ComposerMenus({
           value={model}
           onChange={event => onModelChange(event.target.value)}
         >
-          <option value="">{defaultModel?.label ?? 'Default model'}</option>
-          <ModelOptions models={others} />
+          <option value="">
+            {withBilling(defaultModel?.label ?? 'Default model', defaultModel ? describeModel?.(defaultModel.id) : undefined)}
+          </option>
+          <ModelOptions models={others} describeModel={describeModel} />
         </select>
       ) : (
         defaultModel && (
           <span className="small text-truncate px-1" style={muted} title="Model">
-            {defaultModel.label}
+            {withBilling(defaultModel.label, describeModel?.(defaultModel.id))}
           </span>
         )
       )}

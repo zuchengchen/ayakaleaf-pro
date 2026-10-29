@@ -39,8 +39,10 @@ const Composer = forwardRef<
     onProblem: (message: string | false) => void
     // LOCAL: the model, effort and auto-apply menus
     menus?: ReactNode
+    // LOCAL: what to say about the files attached, such as their model's price
+    attachmentNotice?: (files: File[]) => ReactNode
   }
->(function Composer({ working, selectionNote, onSend, onStop, onProblem, menus }, ref) {
+>(function Composer({ working, selectionNote, onSend, onStop, onProblem, menus, attachmentNotice }, ref) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [focused, setFocused] = useState(false)
@@ -166,6 +168,8 @@ const Composer = forwardRef<
                 </span>
               ) : (
                 <ImagePreview src={previews[index]!} name={file.name}>
+                  {/* LOCAL: focusable so the preview opens from the keyboard too; as upstream */}
+                  {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
                   <span className="d-inline-flex align-items-center gap-1" tabIndex={0}>
                     <MaterialIcon type="image" /> {file.name}
                   </span>
@@ -183,6 +187,7 @@ const Composer = forwardRef<
           ))}
         </div>
       )}
+      {attached.length > 0 && attachmentNotice?.(attached)}
       <textarea
         ref={ref}
         className="form-control border-0 shadow-none p-1"

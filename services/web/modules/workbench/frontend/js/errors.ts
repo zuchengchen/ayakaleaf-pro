@@ -1,3 +1,5 @@
+import type { BillingDenial } from '@modules/ai-billing/frontend/js/billing-notices'
+
 /**
  * Errors the chat tells apart: the quota is used up, AI is off for the user,
  * the per-message tool budget ran out, or a tool declined to run.
@@ -26,6 +28,16 @@ export class ToolBudgetError extends Error {
       'The assistant used all the steps it may take for one message. Reply to let it carry on.'
     )
     this.name = 'ToolBudgetError'
+  }
+}
+
+/** LOCAL: a request billing refused (ai-billing module). */
+export class BillingError extends Error {
+  denial: BillingDenial
+  constructor(denial: BillingDenial) {
+    super(denial.error)
+    this.name = 'BillingError'
+    this.denial = denial
   }
 }
 

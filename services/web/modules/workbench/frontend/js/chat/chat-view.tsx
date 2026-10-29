@@ -27,7 +27,7 @@ import { useProjectContext } from '@/shared/context/project-context'
 import { saveChat } from '@modules/chat-history/frontend/js/api'
 import { useProjectActions } from '../hooks/use-project-actions'
 import { TOOLS, type Respond } from '../agent/tools'
-import { AiUnavailableError, QuotaExceededError, ToolBudgetError, ToolRefusal } from '../errors'
+import { AiUnavailableError, BillingError, QuotaExceededError, ToolBudgetError, ToolRefusal } from '../errors'
 import MessageView, { CONTEXT_OPEN } from './message-view'
 import Composer, { type Draft } from './composer'
 import ComposerMenus from './composer-menus'
@@ -37,6 +37,17 @@ import StarterPrompts from './starter-prompts'
 import ConsentCard from './consent-card'
 import { AiOffNotice, ChatFailedNotice, ChatNotice, QuotaNotice } from './notices'
 import { faint, muted, plain, ruleAbove } from './themed'
+// LOCAL: AI billing (ai-billing module)
+import { useTranslation } from 'react-i18next'
+import { refreshBillingStatus, useBillingStatus } from '@modules/ai-billing/frontend/js/billing-status'
+import { describeModel } from '@modules/ai-billing/frontend/js/format'
+import {
+  AttachmentModelNotice,
+  BillingNotice,
+  BillingSummary,
+  billingDenialOf,
+  type BillingDenial,
+} from '@modules/ai-billing/frontend/js/billing-notices'
 
 // The browser offers the server tools; the server adds the configured ones
 const SERVER_TOOLS = ['web_search', 'web_fetch', 'search_docs']
@@ -146,6 +157,10 @@ export default function ChatView({
   actionsRef.current = actions
 
   const [problem, setProblem] = useState<string | boolean>(false)
+  // LOCAL: why billing refused the last request, and how models are paid for
+  const [billingDenial, setBillingDenial] = useState<BillingDenial | null>(null)
+  const billing = useBillingStatus()
+  const { t } = useTranslation()
   const [quotaHit, setQuotaHit] = useState(false)
   const [summary, setSummary] = useState<Summary | null>(initialSummary)
   const summaryRef = useRef<Summary | null>(initialSummary)
@@ -212,6 +227,9 @@ export default function ChatView({
         async fetch(input, init) {
           const response = await fetch(input, init)
           readQuotaRef.current(response)
+          // LOCAL: free uses gone, no balance, or a model not offered
+          const denial = await billingDenialOf(response)
+          if (denial) throw new BillingError(denial)
           if (response.status === 403) throw new AiUnavailableError()
           if (response.status === 409) throw new ToolBudgetError()
           if (response.status === 429) throw new QuotaExceededError()
@@ -235,7 +253,9 @@ export default function ChatView({
       }
     },
     onError(error) {
-      if (error instanceof QuotaExceededError) {
+      if (error instanceof BillingError) {
+        setBillingDenial(error.denial)
+      } else if (error instanceof QuotaExceededError) {
         setQuotaHit(true)
       } else if (error instanceof ToolBudgetError) {
         setProblem(error.message)
@@ -315,6 +335,14 @@ export default function ChatView({
     )
   }, [status, messages, projectId, chatId])
 
+  // LOCAL: a finished request may have used a free use or charged
+  const wasBusy = useRef(false)
+  useEffect(() => {
+    const requesting = status === 'submitted' || status === 'streaming'
+    if (wasBusy.current && !requesting) refreshBillingStatus()
+    wasBusy.current = requesting
+  }, [status])
+
   // A new chat must not keep running when the panel goes away
   const stopRef = useRef(stop)
   stopRef.current = stop
@@ -349,6 +377,7 @@ export default function ChatView({
     (draft: Draft) => {
       if (!canChat) return
       setProblem(false)
+      setBillingDenial(null)
       stopped.current = false
       // An edit still waiting for Apply or Reject would reach the model as a
       // call without a result, which the gateway refuses
@@ -447,7 +476,8 @@ export default function ChatView({
           !hasTokensLeft && tokenResetDate > now && <QuotaNotice resetsAt={tokenResetDate} />
         ))}
       <div data-chat-input="" {...(canChat ? {} : ({ inert: '' } as any))} className={canChat ? undefined : 'opacity-50'}>
-        {problem && !quotaHit && (
+        {billingDenial && <BillingNotice denial={billingDenial} />}
+        {problem && !quotaHit && !billingDenial && (
           typeof problem === 'string' ? <ChatNotice type="error" text={problem} /> : <ChatFailedNotice />
         )}
         <Composer
@@ -456,12 +486,14 @@ export default function ChatView({
           onSend={send}
           onStop={stopReply}
           onProblem={message => setProblem(message)}
+          attachmentNotice={files => <AttachmentModelNotice files={files} pickedModel={model} />}
           menus={
             <ComposerMenus
               models={models}
               defaultModel={defaultModel}
               model={model}
               onModelChange={setPickedModel}
+              describeModel={id => describeModel(t, billing, id)}
               efforts={efforts}
               effort={effort}
               onEffortChange={setPickedEffort}
@@ -477,6 +509,9 @@ export default function ChatView({
         >
           <span className="text-nowrap">AI can make mistakes.</span>
           <span className="text-nowrap">Always check responses.</span>
+        </p>
+        <p className="d-flex justify-content-center mb-2" style={{ ...faint, fontSize: 'var(--font-size-01)' }}>
+          <BillingSummary />
         </p>
       </div>
     </div>

@@ -18,6 +18,8 @@ import sparkle from '@/shared/svgs/sparkle.svg'
 import useAiAccess from '@modules/workbench/frontend/js/hooks/use-ai-access'
 import Markdown from '@modules/workbench/frontend/js/chat/markdown'
 import { useFixRequest, type Fix, type FixEntry } from './use-fix-request'
+// LOCAL: AI billing (ai-billing module)
+import { BillingNotice } from '@modules/ai-billing/frontend/js/billing-notices'
 import { setLastFix } from './last-fix-store'
 import FixCard from './fix-card'
 import { boxed, muted, plain } from '@modules/workbench/frontend/js/chat/themed'
@@ -93,7 +95,7 @@ export default function FixPanel({ logEntry }: { logEntry: FixEntry }) {
   const aiOffHere = getMeta('ol-showAiFeaturesDisabled')
   const { hasGivenAiConsent, giveAiConsent } = useAiConsent()
   const { view } = useEditorViewContext()
-  const { explanation, fixes, status, request } = useFixRequest(logEntry)
+  const { explanation, fixes, status, denial, request } = useFixRequest(logEntry)
   const [started, setStarted] = useState(false)
   const [applied, setApplied] = useState(false)
 
@@ -175,6 +177,7 @@ export default function FixPanel({ logEntry }: { logEntry: FixEntry }) {
             {heading}
             {status === 'running' && <span className="spinner-border spinner-border-sm" aria-hidden="true" />}
           </div>
+          {status === 'billing' && denial && <BillingNotice denial={denial} className="" />}
           {(status === 'failed' || status === 'quota') && (
             <OLNotification
               type="error"

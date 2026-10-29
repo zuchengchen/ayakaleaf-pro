@@ -4,6 +4,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import getMeta from '@/utils/meta'
 import { debugConsole } from '@/utils/debugging'
+// LOCAL: AI billing (ai-billing module)
+import { billingDenialOf, type BillingDenial } from '@modules/ai-billing/frontend/js/billing-notices'
+import { refreshBillingStatus } from '@modules/ai-billing/frontend/js/billing-status'
 
 export type FixEntry = {
   file?: string
@@ -16,7 +19,7 @@ export type FixEntry = {
 
 export type Fix = { path: string; startLine: number; oldText: string; newText: string }
 
-export type FixStatus = 'idle' | 'running' | 'done' | 'failed' | 'quota'
+export type FixStatus = 'idle' | 'running' | 'done' | 'failed' | 'quota' | 'billing'
 
 // TeX's help text after an error adds nothing for the model
 const MAX_LOG_LINES = 15
@@ -30,6 +33,7 @@ export function useFixRequest(entry: FixEntry) {
   const [explanation, setExplanation] = useState('')
   const [fixes, setFixes] = useState<Fix[]>([])
   const [status, setStatus] = useState<FixStatus>('idle')
+  const [denial, setDenial] = useState<BillingDenial | null>(null)
   const current = useRef<AbortController | null>(null)
 
   useEffect(() => () => current.current?.abort(), [])
@@ -41,6 +45,7 @@ export function useFixRequest(entry: FixEntry) {
     const stillCurrent = () => current.current === controller
     setExplanation('')
     setFixes([])
+    setDenial(null)
     setStatus('running')
 
     let outcome: FixStatus = 'failed'
@@ -63,6 +68,13 @@ export function useFixRequest(entry: FixEntry) {
         }),
         signal: controller.signal,
       })
+      // LOCAL: free uses gone, no balance, or the model not offered
+      const refused = await billingDenialOf(response)
+      if (refused) {
+        if (stillCurrent()) setDenial(refused)
+        outcome = 'billing'
+        return
+      }
       if (response.status === 429) {
         outcome = 'quota'
         return
@@ -89,8 +101,9 @@ export function useFixRequest(entry: FixEntry) {
       if ((error as Error).name !== 'AbortError') debugConsole.error(error)
     } finally {
       if (stillCurrent()) setStatus(outcome)
+      refreshBillingStatus()
     }
   }, [entry])
 
-  return { explanation, fixes, status, request }
+  return { explanation, fixes, status, denial, request }
 }
