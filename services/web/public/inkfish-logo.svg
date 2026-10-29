@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- 墨鱼 Inkfish -->
-  <rect width="64" height="64" rx="14" fill="#1D2B53"/>
+<!-- 墨鱼 Inkfish, sized for the 130x68 navbar logo box -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 68"><g transform="translate(84 14) scale(0.625)"><rect width="64" height="64" rx="14" fill="#1D2B53"/>
   <path d="M15 24 L22 21 L22 31 Z M49 24 L42 21 L42 31 Z" fill="#fff"/>
   <path d="M32 7 C41 13 44 21 44 31 L44 38 C44 42 39 45 32 45 C25 45 20 42 20 38 L20 31 C20 21 23 13 32 7 Z" fill="#fff"/>
   <circle cx="27" cy="35" r="2.8" fill="#1D2B53"/>
@@ -11,5 +10,4 @@
     <path d="M34 45 C34 50 35 54 37 57"/>
     <path d="M40 44 C41 50 43 53 46 55"/>
   </g>
-  <path d="M53 41 C53 41 48 47 48 50.5 A5 5 0 0 0 58 50.5 C58 47 53 41 53 41 Z" fill="#2EC4B6"/>
-</svg>
+  <path d="M53 41 C53 41 48 47 48 50.5 A5 5 0 0 0 58 50.5 C58 47 53 41 53 41 Z" fill="#2EC4B6"/></g></svg>
