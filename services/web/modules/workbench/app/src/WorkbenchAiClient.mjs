@@ -4,6 +4,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent'
 import nodeFetch from 'node-fetch'
 import { Readable } from 'node:stream'
 import AiProviderStore from '../../../ai-providers/app/src/AiProviderStore.mjs'
+import AiBilling from '../../../ai-billing/app/src/AiBilling.mjs'
 
 /**
  * Configures the AI SDK providers, optional HTTP proxy, and model selection
@@ -98,7 +99,8 @@ export function getSelectableModels() {
   const config = AiProviderStore.current()
   return config.providers.flatMap(provider =>
     provider.models
-      .filter(model => model.selectable)
+      // LOCAL: billing (ai-billing module) may leave models out
+      .filter(model => model.selectable && AiBilling.isModelOffered(model.id))
       .map(model => ({
         id: model.id,
         label: model.label || model.model,
@@ -129,6 +131,12 @@ export function getRoleModel(role) {
   )
 }
 
+/** LOCAL: the id of the model for one use, as getRoleModel picks it. */
+export function getRoleModelId(role) {
+  const config = AiProviderStore.current()
+  return AiProviderStore.findModel(config, config.roles[role]) ? config.roles[role] : config.roles.chat
+}
+
 /** Whether a user attached a PDF anywhere in the conversation. */
 export function hasPdf(messages = []) {
   return messages.some(message =>
@@ -145,6 +153,11 @@ export function hasPdf(messages = []) {
 export function resolveModel(messages = [], choice = null) {
   const config = AiProviderStore.current()
   return languageModel(config, resolveModelId(config, messages, choice))
+}
+
+/** LOCAL: the id of the model resolveModel picks, for billing. */
+export function resolveModelIdFor(messages = [], choice = null) {
+  return resolveModelId(AiProviderStore.current(), messages, choice)
 }
 
 /**
@@ -212,7 +225,9 @@ export default {
   getSelectableModels,
   getDefaultModel,
   getRoleModel,
+  getRoleModelId,
   resolveModel,
+  resolveModelIdFor,
   resolveReasoningEffort,
   getMaxSteps,
   SYSTEM_PROMPT,

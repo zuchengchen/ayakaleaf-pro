@@ -201,7 +201,7 @@ function transcript(messages, summary) {
  * summary, the id of the last summarized message and the messages to keep,
  * or null when the history fits or has nothing to summarize.
  */
-export async function compactHistory({ messages, summary, userId }) {
+export async function compactHistory({ messages, summary, userId, onUsage }) {
   const total =
     messages.reduce((sum, message) => sum + messageTokens(message), 0) +
     (summary ? textTokens(summary) : 0)
@@ -221,6 +221,8 @@ export async function compactHistory({ messages, summary, userId }) {
   if (userId) {
     await recordTokenUsage(userId, (await result.totalUsage)?.totalTokens)
   }
+  // LOCAL: billing (ai-billing module)
+  await onUsage?.(await result.totalUsage)
   if (!text.trim()) return null
   return {
     summary: text,

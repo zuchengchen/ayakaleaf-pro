@@ -58,6 +58,11 @@ describe('WorkbenchAiClient', function () {
         },
       },
     }))
+    // LOCAL: models billing does not offer are left out
+    ctx.notOffered = new Set()
+    vi.doMock('../../../../ai-billing/app/src/AiBilling.mjs', () => ({
+      default: { isModelOffered: modelId => !ctx.notOffered.has(modelId) },
+    }))
     vi.doMock('@ai-sdk/openai-compatible', () => ({
       createOpenAICompatible:
         ({ baseURL, apiKey }) =>
@@ -124,5 +129,20 @@ describe('WorkbenchAiClient', function () {
   it('falls back to the chat model for a use without one', function (ctx) {
     expect(ctx.Client.getRoleModel('errorAssistant').model).toBe('a-chat')
     expect(ctx.Client.getRoleModel('pdf').model).toBe('b-pdf')
+  })
+
+  // LOCAL: ai-billing
+  it('leaves out the models billing does not offer', function (ctx) {
+    ctx.notOffered.add('vision')
+    expect(ctx.Client.getSelectableModels().map(model => model.id)).toEqual(['pick'])
+  })
+
+  it('names the models it picks, for billing', function (ctx) {
+    expect(ctx.Client.resolveModelIdFor([])).toBe('chat')
+    expect(ctx.Client.resolveModelIdFor([pdfMessage])).toBe('pdf')
+    expect(ctx.Client.resolveModelIdFor([imageMessage])).toBe('vision')
+    expect(ctx.Client.resolveModelIdFor([pdfMessage], 'pick')).toBe('pick')
+    expect(ctx.Client.getRoleModelId('errorAssistant')).toBe('chat')
+    expect(ctx.Client.getRoleModelId('pdf')).toBe('pdf')
   })
 })

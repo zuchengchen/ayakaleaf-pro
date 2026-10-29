@@ -1,0 +1,10 @@
+extends ../../../../app/views/layout-react
+
+block vars
+	- isWebsiteRedesign = true
+
+block entrypointVar
+	- entrypoint = 'modules/ai-billing/pages/admin-ai-billing'
+
+block content
+	main#admin-ai-billing-root.content

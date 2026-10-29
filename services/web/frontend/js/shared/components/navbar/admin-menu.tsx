@@ -45,6 +45,10 @@ export default function AdminMenu({
           <NavDropdownLinkItem href="/admin/ai-providers">
             Manage AI Providers
           </NavDropdownLinkItem>
+          {/* LOCAL: free uses, VIP, prices and redeem codes, from the ai-billing module */}
+          <NavDropdownLinkItem href="/admin/ai-billing">
+            Manage AI Billing
+          </NavDropdownLinkItem>
         </>
       ) : null}
       {canDisplayProjectUrlLookup ? (

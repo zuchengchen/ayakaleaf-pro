@@ -1350,6 +1350,8 @@ module.exports = {
     'error-assistant',
     // LOCAL: admin page for AI gateways and models
     'ai-providers',
+    // LOCAL: free uses, VIP and balances for the AI assistant
+    'ai-billing',
     // LOCAL: AI assistant chat history
     'chat-history',
     'instance-features',

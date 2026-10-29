@@ -1,0 +1,10 @@
+extends ../../../../app/views/layout-react
+
+block vars
+	- isWebsiteRedesign = true
+
+block entrypointVar
+	- entrypoint = 'modules/ai-billing/pages/ai-redeem'
+
+block content
+	main#ai-redeem-root.content

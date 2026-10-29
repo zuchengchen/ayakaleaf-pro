@@ -16,6 +16,8 @@ import {
   getSelectableModels,
   getDefaultModel,
   resolveModel,
+  resolveModelIdFor,
+  getRoleModelId,
   resolveReasoningEffort,
   hasPdf,
   getMaxSteps,
@@ -33,6 +35,7 @@ import {
   secondsUntilReset,
   recordTokenUsage,
 } from './TokenQuota.mjs'
+import AiBilling from '../../../ai-billing/app/src/AiBilling.mjs'
 
 function hasValidAttachments(messages) {
   return messages.every(message =>
@@ -120,6 +123,27 @@ async function chat(req, res) {
     }
   }
 
+  // LOCAL: AI billing (ai-billing module): a free use, VIP or the balance.
+  // Requests that carry on a reply after browser tools are not new uses.
+  const turn = messages.findLast(message => message?.role === 'user')?.id ?? null
+  const newTurn = messages.at(-1)?.role === 'user'
+  let ticket
+  try {
+    const billing = await AiBilling.authorize({
+      userId,
+      modelId: resolveModelIdFor(messages, model),
+      newTurn,
+      turn,
+    })
+    if (!billing.ok) {
+      return res.status(billing.denial.status).json(billing.denial)
+    }
+    ticket = billing.ticket
+  } catch (err) {
+    logger.err({ err, userId }, 'workbench chat: billing check failed')
+    return res.status(503).json({ error: 'ai_billing_unavailable' })
+  }
+
   const enabledTools = Array.isArray(req.body?.enabledTools)
     ? req.body.enabledTools
     : []
@@ -162,7 +186,17 @@ async function chat(req, res) {
   let historySummary = summary
   let compaction = null
   try {
-    compaction = await compactHistory({ messages: condensed, summary, userId })
+    compaction = await compactHistory({
+      messages: condensed,
+      summary,
+      userId,
+      // LOCAL: the summary is charged at the chat model's price
+      onUsage: usage =>
+        AiBilling.settleQuietly(ticket, usage, {
+          modelId: getRoleModelId('chat'),
+          feature: 'compaction',
+        }),
+    })
   } catch (err) {
     // Send the whole history rather than fail the chat
     logger.warn({ err, userId }, 'workbench chat: could not summarize history')
@@ -178,6 +212,25 @@ async function chat(req, res) {
 
   const resolvedModel = resolveModel(history, model)
   const effort = resolveReasoningEffort(history, model, reasoningEffort)
+  // LOCAL: a summary that dropped attachments can change the model
+  const modelId = resolveModelIdFor(history, model)
+  if (ticket.mode !== 'off' && modelId !== ticket.modelId) {
+    let billing
+    try {
+      billing = await AiBilling.authorize({ userId, modelId, newTurn: false, turn })
+    } catch (err) {
+      logger.err({ err, userId }, 'workbench chat: billing check failed')
+      billing = { ok: false, denial: { status: 503, error: 'ai_billing_unavailable' } }
+    }
+    if (!billing.ok) {
+      await AiBilling.refund(ticket)
+      return res.status(billing.denial.status).json(billing.denial)
+    }
+    ticket = { ...billing.ticket, freeDate: ticket.freeDate }
+  }
+  // Whether a step finished; a request that failed before any gives back
+  // its free use
+  let produced = false
 
   try {
     const result = streamText({
@@ -193,14 +246,19 @@ async function chat(req, res) {
       // Finish the current step for its usage report, but stop after a disconnect.
       stopWhen: [toolCallLimit.exhausted, () => res.destroyed],
       onStepFinish: async ({ usage }) => {
+        produced = true
         if (userId) {
           await recordTokenUsage(userId, usage?.totalTokens)
         }
+        // LOCAL: charge the step
+        await AiBilling.settleQuietly(ticket, usage, { modelId, feature: 'chat' })
       },
     })
 
     const onError = err => {
       logger.err({ err, userId }, 'workbench chat stream error')
+      // LOCAL: nothing came of the request; refund logs its own failures
+      if (!produced) void AiBilling.refund(ticket)
       // Gateways that take images but not PDF files refuse the request
       if (
         hasPdf(history) &&
@@ -257,6 +315,7 @@ async function chat(req, res) {
     })
   } catch (err) {
     logger.err({ err, userId }, 'workbench chat failed')
+    if (!produced) await AiBilling.refund(ticket)
     if (!res.headersSent) {
       res.status(500).json({ error: 'internal' })
     }

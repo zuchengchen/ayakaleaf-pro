@@ -8,6 +8,7 @@ import {
   loadAiConfig,
   isConfigured,
   getRoleModel,
+  getRoleModelId,
 } from '../../../workbench/app/src/WorkbenchAiClient.mjs'
 import {
   isQuotaEnabled,
@@ -15,6 +16,7 @@ import {
   secondsUntilReset,
   recordTokenUsage,
 } from '../../../workbench/app/src/TokenQuota.mjs'
+import AiBilling from '../../../ai-billing/app/src/AiBilling.mjs'
 
 /**
  * POST /project/:Project_id/ai/fix-error
@@ -145,6 +147,20 @@ async function fixError(req, res) {
     return res.status(500).json({ error: 'internal' })
   }
 
+  // LOCAL: AI billing (ai-billing module): each fix is one use
+  const modelId = getRoleModelId('errorAssistant')
+  let ticket
+  try {
+    const billing = await AiBilling.authorize({ userId, modelId })
+    if (!billing.ok) {
+      return res.status(billing.denial.status).json(billing.denial)
+    }
+    ticket = billing.ticket
+  } catch (err) {
+    logger.err({ err, userId }, 'ai fix-error: billing check failed')
+    return res.status(503).json({ error: 'ai_billing_unavailable' })
+  }
+
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson',
     // no-transform keeps compressing proxies from holding the stream
@@ -159,6 +175,9 @@ async function fixError(req, res) {
     if (!res.destroyed) res.write(`${JSON.stringify(event)}\n`)
   }
 
+  // LOCAL: whether the model finished; a fix that failed before gives back
+  // its free use
+  let produced = false
   try {
     const result = streamText({
       model: getRoleModel('errorAssistant'),
@@ -167,7 +186,14 @@ async function fixError(req, res) {
       tools: { propose_fix: proposeFix },
       stopWhen: stepCountIs(1),
       onStepFinish: async ({ usage }) => {
+        produced = true
         if (userId) await recordTokenUsage(userId, usage?.totalTokens)
+        // LOCAL: charge the fix
+        await AiBilling.settleQuietly(ticket, usage, {
+          modelId,
+          feature: 'errorAssistant',
+          projectId,
+        })
       },
     })
     let failed = false
@@ -181,9 +207,11 @@ async function fixError(req, res) {
         failed = true
       }
     }
+    if (failed && !produced) await AiBilling.refund(ticket)
     emit({ type: failed ? 'failed' : 'done' })
   } catch (err) {
     logger.err({ err, userId, projectId }, 'ai fix-error failed')
+    if (!produced) await AiBilling.refund(ticket)
     emit({ type: 'failed' })
   } finally {
     res.end()
