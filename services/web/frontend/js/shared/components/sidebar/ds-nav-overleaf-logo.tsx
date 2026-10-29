@@ -12,7 +12,8 @@ export function DsNavOverleafLogo() {
       <a href="/" aria-label={appName}>
         <img
           src={activeOverallTheme === 'dark' ? overleafLogoDark : overleafLogo}
-          alt="Overleaf, A Digital Science Solution"
+          // LOCAL: the image is the 墨鱼 Inkfish wordmark
+          alt={appName}
           height="59"
           width="130"
         />

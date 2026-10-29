@@ -1,13 +1,24 @@
 {
-  "name": "Overleaf",
+  "name": "墨鱼 Inkfish",
+  "short_name": "墨鱼",
   "icons": [
     {
-      "src": "/overleaf-logo.svg",
+      "src": "/favicon.svg",
       "type": "image/svg+xml",
       "sizes": "any"
+    },
+    {
+      "src": "/touch-icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/touch-icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
-  "theme_color": "#1b222c",
+  "theme_color": "#1D2B53",
   "background_color": "#ffffff",
   "start_url": "/",
   "display": "standalone"
