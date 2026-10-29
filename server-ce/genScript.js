@@ -38,6 +38,12 @@ switch (process.argv.pop()) {
       }
       console.log('popd')
     }
+    // LOCAL: `yarn workspaces focus --production` keeps the dev-only zips (webpack,
+    // storybook, other-platform binaries, ...) in .yarn/cache; drop every zip
+    // that .pnp.cjs no longer references
+    console.log(
+      `node -e 'const fs = require("fs"); const pnp = fs.readFileSync(".pnp.cjs", "utf8"); for (const f of fs.readdirSync(".yarn/cache")) if (!pnp.includes(f)) fs.rmSync(".yarn/cache/" + f)'`
+    )
     break
   default:
     console.error('unknown command')
