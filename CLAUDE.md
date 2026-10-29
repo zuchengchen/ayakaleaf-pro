@@ -17,6 +17,7 @@
 | `main` | 本地开发与部署主分支 | 所有本地定制都在这里；定期合并 `server-pro` |
 | `feat/*` | 单个功能 | 从 `main` 拉出，完成后合回 `main` |
 | `pr/*` | 准备贡献给上游的改动 | 从 `server-pro` 拉出，不得夹带本地私有改动 |
+| `release-v<上游版本>` | 部署用镜像的构建源 | 指向要部署的 `main` 提交；推送后在 Actions 手动运行 Build Release Image，发布 `ghcr.io/zuchengchen/overleaf-pro:<版本>` |
 
 - 新工作默认在 `main` 或从 `main` 拉出的 `feat/*` 上进行；发现当前在 `server-pro` 上要改代码时，先切走。
 - 同步上游使用 merge，不用 rebase（`main` 是部署分支，避免 force push）。
@@ -27,7 +28,8 @@
 bin/sync-upstream          # 快进 server-pro → 推到 origin → 合并进 main
 ```
 
-合并后先跑相关测试，再 `git push origin main`。冲突处理：
+合并后先跑相关测试，再 `git push origin main`。要更新部署镜像时，把 `release-v<上游版本>` 指到新的 `main` 提交并推送，
+再运行 Build Release Image（它总是构建版本号最大的 `release-v*` 分支）。冲突处理：
 
 - `yarn.lock`：不手工合并，取上游版本后 `yarn install` 重新生成。
 - 其它文件：保留上游的改动意图，再把本地定制重新套上去；拿不准时询问用户。
