@@ -10,7 +10,7 @@
   <a href="https://github.com/ayaka-notes/ayakaleaf-pro-playground">Playground</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/blog">블로그</a> •
   <a href="https://github.com/orgs/ayaka-notes/packages/container/package/overleaf-pro">Docker 이미지</a> •
-  <a href="https://github.com/ayaka-notes/texlive-full">TeXLive</a> •
+  <a href="https://github.com/zuchengchen/texlive-full">TeXLive</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/dev">개발자</a> •
   <a href="#저자">저자</a> •
   <a href="#라이선스">라이선스</a>
@@ -62,7 +62,7 @@ Ayakaleaf Pro는 거의 모든 기능을 갖춘 Overleaf의 확장판입니다. 
 - LDAP, SAML 또는 OAuth 2.0을 통한 SSO
 - 무제한 컴파일 시간 (관리자 패널에서 조정 가능)
 - 자체 가입 (선택 사항, 메일 도메인으로 제한 가능)
-- 샌드박스 컴파일 ([texlive-full](https://github.com/ayaka-notes/texlive-full) 이미지 지원)
+- 샌드박스 컴파일 ([texlive-full](https://github.com/zuchengchen/texlive-full) 이미지 지원)
 - 템플릿 시스템 (템플릿 갤러리 포함)
 - 변경 내용 추적 (검토 및 댓글 패널 포함)
 - 전체 프로젝트 기록 (복원 및 다운로드 지원)

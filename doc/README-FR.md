@@ -10,7 +10,7 @@
   <a href="https://github.com/ayaka-notes/ayakaleaf-pro-playground">Playground</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/blog">Blog</a> •
   <a href="https://github.com/orgs/ayaka-notes/packages/container/package/overleaf-pro">Image Docker</a> •
-  <a href="https://github.com/ayaka-notes/texlive-full">TeXLive</a> •
+  <a href="https://github.com/zuchengchen/texlive-full">TeXLive</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/dev">Développeurs</a> •
   <a href="#auteurs">Auteurs</a> •
   <a href="#licence">Licence</a>
@@ -62,7 +62,7 @@ Ayakaleaf Pro est une version améliorée d'Overleaf qui offre presque toutes le
 - SSO avec LDAP et SAML ou OAuth 2.0
 - Temps de compilation illimité (réglable dans le panneau d'administration)
 - Inscription libre (facultative, peut être limitée par domaine de messagerie)
-- Compilation en sandbox (avec prise en charge de l'image [texlive-full](https://github.com/ayaka-notes/texlive-full))
+- Compilation en sandbox (avec prise en charge de l'image [texlive-full](https://github.com/zuchengchen/texlive-full))
 - Système de modèles (avec galerie de modèles)
 - Suivi des modifications (avec panneau de relecture et de commentaires)
 - Historique complet du projet (avec restauration et téléchargement)

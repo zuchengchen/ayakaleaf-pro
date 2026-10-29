@@ -10,7 +10,7 @@
   <a href="https://github.com/ayaka-notes/ayakaleaf-pro-playground">Playground</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/blog">博客</a> •
   <a href="https://github.com/orgs/ayaka-notes/packages/container/package/overleaf-pro">Docker 镜像</a> •
-  <a href="https://github.com/ayaka-notes/texlive-full">TeXLive</a> •
+  <a href="https://github.com/zuchengchen/texlive-full">TeXLive</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/dev">开发者</a> •
   <a href="#作者">作者</a> •
   <a href="#许可证">许可证</a>
@@ -62,7 +62,7 @@ Ayakaleaf Pro 是 Overleaf 的增强版本，具备几乎全部功能与能力�
 - 通过 LDAP、SAML 或 OAuth 2.0 实现 SSO
 - 不限编译时长（可在管理面板中调整）
 - 自助注册（可选，可按邮箱域名限制）
-- 沙箱编译（支持 [texlive-full](https://github.com/ayaka-notes/texlive-full) 镜像）
+- 沙箱编译（支持 [texlive-full](https://github.com/zuchengchen/texlive-full) 镜像）
 - 模板系统（附带模板库）
 - 修订追踪（附带审阅与评论面板）
 - 完整项目历史（支持恢复和下载）

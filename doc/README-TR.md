@@ -10,7 +10,7 @@
   <a href="https://github.com/ayaka-notes/ayakaleaf-pro-playground">Playground</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/blog">Blog</a> •
   <a href="https://github.com/orgs/ayaka-notes/packages/container/package/overleaf-pro">Docker İmajı</a> •
-  <a href="https://github.com/ayaka-notes/texlive-full">TeXLive</a> •
+  <a href="https://github.com/zuchengchen/texlive-full">TeXLive</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/dev">Geliştirici</a> •
   <a href="#yazarlar">Yazarlar</a> •
   <a href="#lisans">Lisans</a>
@@ -62,7 +62,7 @@ Ayakaleaf Pro, neredeyse tüm özellik ve yeteneklere sahip, Overleaf'in gelişt
 - LDAP ve SAML veya OAuth 2.0 ile SSO
 - Sınırsız derleme süresi (yönetim panelinden ayarlanabilir)
 - Kendi kendine kayıt (isteğe bağlı, e-posta alan adına göre sınırlandırılabilir)
-- Korumalı alanda (sandbox) derleme ([texlive-full](https://github.com/ayaka-notes/texlive-full) imajı desteğiyle)
+- Korumalı alanda (sandbox) derleme ([texlive-full](https://github.com/zuchengchen/texlive-full) imajı desteğiyle)
 - Şablon sistemi (şablon galerisiyle)
 - Değişiklikleri izleme (inceleme ve yorum paneliyle)
 - Tam proje geçmişi (geri yükleme ve indirme ile)

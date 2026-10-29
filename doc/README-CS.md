@@ -10,7 +10,7 @@
   <a href="https://github.com/ayaka-notes/ayakaleaf-pro-playground">Playground</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/blog">Blog</a> •
   <a href="https://github.com/orgs/ayaka-notes/packages/container/package/overleaf-pro">Docker image</a> •
-  <a href="https://github.com/ayaka-notes/texlive-full">TeXLive</a> •
+  <a href="https://github.com/zuchengchen/texlive-full">TeXLive</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/dev">Pro vývojáře</a> •
   <a href="#autoři">Autoři</a> •
   <a href="#licence">Licence</a>
@@ -62,7 +62,7 @@ Ayakaleaf Pro je rozšířená verze Overleaf s téměř všemi funkcemi a možn
 - SSO přes LDAP a SAML nebo OAuth 2.0
 - Neomezená doba kompilace (nastavitelná v administračním panelu)
 - Samoregistrace (volitelná, lze omezit podle e-mailové domény)
-- Kompilace v sandboxu (s podporou image [texlive-full](https://github.com/ayaka-notes/texlive-full))
+- Kompilace v sandboxu (s podporou image [texlive-full](https://github.com/zuchengchen/texlive-full))
 - Systém šablon (s galerií šablon)
 - Sledování změn (s panelem pro revize a komentáře)
 - Úplná historie projektu (s obnovením a stažením)

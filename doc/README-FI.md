@@ -10,7 +10,7 @@
   <a href="https://github.com/ayaka-notes/ayakaleaf-pro-playground">Playground</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/blog">Blogi</a> •
   <a href="https://github.com/orgs/ayaka-notes/packages/container/package/overleaf-pro">Docker-kuva</a> •
-  <a href="https://github.com/ayaka-notes/texlive-full">TeXLive</a> •
+  <a href="https://github.com/zuchengchen/texlive-full">TeXLive</a> •
   <a href="https://ayakaleaf-pro.ayaka.space/dev">Kehittäjät</a> •
   <a href="#tekijät">Tekijät</a> •
   <a href="#lisenssi">Lisenssi</a>
@@ -62,7 +62,7 @@ Ayakaleaf Pro on Overleafin laajennettu versio, joka sisältää lähes kaikki o
 - SSO LDAP:n ja SAML:n tai OAuth 2.0:n kautta
 - Rajoittamaton käännösaika (säädettävissä hallintapaneelissa)
 - Omatoiminen rekisteröityminen (valinnainen, voidaan rajata sähköpostiverkkotunnuksen mukaan)
-- Hiekkalaatikossa kääntäminen ([texlive-full](https://github.com/ayaka-notes/texlive-full)-kuvan tuella)
+- Hiekkalaatikossa kääntäminen ([texlive-full](https://github.com/zuchengchen/texlive-full)-kuvan tuella)
 - Mallijärjestelmä (mallivalikoimalla)
 - Muutosten seuranta (tarkistus- ja kommenttipaneelilla)
 - Täydellinen projektihistoria (palautus ja lataus)
